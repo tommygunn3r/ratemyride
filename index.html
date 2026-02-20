@@ -1025,6 +1025,22 @@ function renderResult(data, imageDataUrl) {
   };
   frame.src = blobUrl;
 
+  // Configure share button based on device capabilities
+  const shareBtn = document.getElementById('btn-share');
+  const testFile = new File([''], 'test.jpg', { type: 'image/jpeg' });
+  if (navigator.share && navigator.canShare && navigator.canShare({ files: [testFile] })) {
+    shareBtn.textContent = '📤 Share Image';
+    shareBtn.style.display = '';
+  } else if (navigator.share) {
+    shareBtn.textContent = '📤 Share';
+    shareBtn.style.display = '';
+  } else if (navigator.clipboard) {
+    shareBtn.textContent = '📋 Copy Text';
+    shareBtn.style.display = '';
+  } else {
+    shareBtn.style.display = 'none';
+  }
+
   // Show results UI
   document.getElementById('upload-section').style.opacity = '0';
   document.getElementById('upload-section').style.pointerEvents = 'none';
