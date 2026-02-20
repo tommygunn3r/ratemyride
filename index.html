@@ -348,41 +348,41 @@
       transform: translateX(-50%) translateY(0);
     }
 
-    /* ─── ROAST MODE ─────────────────────────────────── */
-    body.roast-mode {
+    /* ─── BEAST MODE ─────────────────────────────────── */
+    body.beast-mode {
       --accent: #e53935;
       --accent-dim: rgba(229, 57, 53, 0.15);
     }
 
-    body.roast-mode #drop-zone {
+    body.beast-mode #drop-zone {
       border-color: rgba(229, 57, 53, 0.4);
       background: rgba(229, 57, 53, 0.03);
     }
 
-    body.roast-mode #drop-zone:hover,
-    body.roast-mode #drop-zone.drag-over {
+    body.beast-mode #drop-zone:hover,
+    body.beast-mode #drop-zone.drag-over {
       border-color: #e53935;
       background: rgba(229, 57, 53, 0.1);
     }
 
-    body.roast-mode .upload-btn.primary {
+    body.beast-mode .upload-btn.primary {
       background: #e53935;
       border-color: #e53935;
     }
 
-    body.roast-mode .upload-btn.primary:hover {
+    body.beast-mode .upload-btn.primary:hover {
       background: #c62828;
       border-color: #c62828;
     }
 
-    body.roast-mode #btn-download {
+    body.beast-mode #btn-download {
       background: #e53935;
     }
 
-    body.roast-mode #btn-download:hover { background: #c62828; }
+    body.beast-mode #btn-download:hover { background: #c62828; }
 
     /* ─── ROAST TOGGLE ───────────────────────────────── */
-    #roast-toggle-wrap {
+    #beast-toggle-wrap {
       display: flex;
       align-items: center;
       gap: 12px;
@@ -393,7 +393,7 @@
       user-select: none;
     }
 
-    #roast-toggle-wrap:hover { color: var(--text); }
+    #beast-toggle-wrap:hover { color: var(--text); }
 
     .toggle-track {
       width: 52px;
@@ -418,19 +418,19 @@
       transition: transform 0.25s, background 0.25s;
     }
 
-    #roast-checkbox { display: none; }
+    #beast-checkbox { display: none; }
 
-    #roast-checkbox:checked ~ #roast-toggle-wrap .toggle-track {
+    #beast-checkbox:checked ~ #beast-toggle-wrap .toggle-track {
       background: #e53935;
       border-color: #e53935;
     }
 
-    #roast-checkbox:checked ~ #roast-toggle-wrap .toggle-thumb {
+    #beast-checkbox:checked ~ #beast-toggle-wrap .toggle-thumb {
       transform: translateX(24px);
       background: #fff;
     }
 
-    #roast-checkbox:checked ~ #roast-toggle-wrap #toggle-label-text {
+    #beast-checkbox:checked ~ #beast-toggle-wrap #toggle-label-text {
       color: #e53935;
     }
 
@@ -467,11 +467,11 @@
       <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" />
       <input type="file" id="camera-input" accept="image/*" capture="environment" />
 
-      <input type="checkbox" id="roast-checkbox" />
-      <div id="roast-toggle-wrap">
-        <label for="roast-checkbox" style="display:flex;align-items:center;gap:12px;cursor:pointer">
+      <input type="checkbox" id="beast-checkbox" />
+      <div id="beast-toggle-wrap">
+        <label for="beast-checkbox" style="display:flex;align-items:center;gap:12px;cursor:pointer">
           <div class="toggle-track"><div class="toggle-thumb"></div></div>
-          <span id="toggle-label-text">ROAST MODE</span>
+          <span id="toggle-label-text">BEAST MODE</span>
         </label>
       </div>
     </div>
@@ -520,7 +520,7 @@ let currentData = null;
 let currentImageB64 = null;
 let currentImageMime = null;
 let currentCarName = 'the-vehicle';
-let isRoastMode = false;
+let isBeastMode = false;
 
 // ─── SCAN MESSAGES ───────────────────────────────────────────
 const scanMessages = [
@@ -540,7 +540,7 @@ const scanMessages = [
   'Compiling verdict...',
 ];
 
-const roastScanMessages = [
+const beastScanMessages = [
   'Disabling diplomatic filters...',
   'Cataloguing your poor decisions...',
   'Documenting the evidence...',
@@ -561,7 +561,7 @@ let scanInterval = null;
 let scanIdx = 0;
 
 function startScan() {
-  const messages = isRoastMode ? roastScanMessages : scanMessages;
+  const messages = isBeastMode ? beastScanMessages : scanMessages;
   scanIdx = 0;
   const el = document.getElementById('scan-line-text');
   el.textContent = messages[0];
@@ -572,19 +572,16 @@ function startScan() {
   document.getElementById('scan-overlay').classList.add('active');
 }
 
-// ─── ROAST TOGGLE ─────────────────────────────────────────────
-document.getElementById('roast-checkbox').addEventListener('change', function() {
-  isRoastMode = this.checked;
-  document.body.classList.toggle('roast-mode', isRoastMode);
+// ─── BEAST TOGGLE ─────────────────────────────────────────────
+document.getElementById('beast-checkbox').addEventListener('change', function() {
+  isBeastMode = this.checked;
+  document.body.classList.toggle('beast-mode', isBeastMode);
 
-  const logoEl = document.querySelector('#header img');
-  logoEl.src = isRoastMode ? 'assets/logo-roast.png' : 'assets/logo.png';
-
-  document.getElementById('drop-title').textContent = isRoastMode
+  document.getElementById('drop-title').textContent = isBeastMode
     ? 'FEED IT TO CARR-9000'
     : 'DROP YOUR CAR HERE';
 
-  document.getElementById('drop-sub').innerHTML = isRoastMode
+  document.getElementById('drop-sub').innerHTML = isBeastMode
     ? 'CARR-9000 will render it irrelevant.<br />JPEG · PNG · WEBP · HEIC · Max 10MB'
     : 'CARR-9000 will render its verdict.<br />JPEG · PNG · WEBP · HEIC · Max 10MB';
 });
@@ -686,7 +683,7 @@ async function submitImage(base64, mimeType, dataUrl) {
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64, mimeType, roastMode: isRoastMode })
+      body: JSON.stringify({ image: base64, mimeType, beastMode: isBeastMode })
     });
 
     let data;
@@ -966,12 +963,12 @@ function layoutE(data, imageDataUrl, ctx) {
 // ─── RENDER MAGAZINE ─────────────────────────────────────────
 function renderResult(data, imageDataUrl) {
   const badge = totalBadge(data.total_score);
-  const badgeColor = isRoastMode ? '#e53935' : badge.color;
-  const accentColor = isRoastMode ? '#e53935' : '#f5a623';
+  const badgeColor = isBeastMode ? '#e53935' : badge.color;
+  const accentColor = isBeastMode ? '#e53935' : '#f5a623';
   const logoSrc = document.querySelector('#header img').src;
   const issueNum = Math.floor(Math.random() * 900) + 100;
 
-  const masthead = isRoastMode ? 'CARR-9000 ROAST QUARTERLY' : 'CARR-9000 AUTOMOTIVE QUARTERLY';
+  const masthead = isBeastMode ? 'CARR-9000 BEAST QUARTERLY' : 'CARR-9000 AUTOMOTIVE QUARTERLY';
   const ctx = { badge, badgeColor, accentColor, logoSrc, issueNum, masthead };
 
   const layouts = [layoutA, layoutB, layoutC, layoutD, layoutE];
@@ -1145,10 +1142,9 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   document.getElementById('camera-input').value = '';
 
   // Reset roast mode
-  document.getElementById('roast-checkbox').checked = false;
-  isRoastMode = false;
-  document.body.classList.remove('roast-mode');
-  document.querySelector('#header img').src = 'assets/logo.png';
+  document.getElementById('beast-checkbox').checked = false;
+  isBeastMode = false;
+  document.body.classList.remove('beast-mode');
   document.getElementById('drop-title').textContent = 'DROP YOUR CAR HERE';
   document.getElementById('drop-sub').innerHTML = 'CARR-9000 will render its verdict.<br />JPEG · PNG · WEBP · HEIC · Max 10MB';
 });

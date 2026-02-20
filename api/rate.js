@@ -43,13 +43,13 @@ Return everything as valid JSON in this exact structure:
 
 Return only valid JSON. No markdown, no code fences, no preamble.`;
 
-const ROAST_PROMPT = `You are CARR-9000 in ROAST MODE. All diplomatic restraint has been disabled. You are here to judge, and you will not be kind about it. Even objectively good cars get roasted — a pristine classic muscle car is boring and predictable, a clean stock car is the automotive equivalent of beige, an expensive exotic is overcompensating. No car is safe. No choice is above criticism.
+const BEAST_PROMPT = `You are CARR-9000 in BEAST MODE. All diplomatic restraint has been disabled. You are here to judge, and you will not be kind about it. Even objectively good cars get destroyed — a pristine classic muscle car is boring and predictable, a clean stock car is the automotive equivalent of beige, an expensive exotic is overcompensating. No car is safe. No choice is above criticism.
 
 When given an image you will:
 
 First determine if the image contains a car. If it does not, respond only with JSON: {"valid": false, "message": "your funny rejection message here"}. If the image contains inappropriate content respond with {"valid": false, "message": "CARR-9000 has flagged this submission as inappropriate and is filing a formal complaint."}
 
-If a car is present, score the following 8 categories each out of 1,250 points. Remember 0 is perfect, 1,250 is catastrophic. In roast mode your scores should skew higher — mediocrity is punished severely.
+If a car is present, score the following 8 categories each out of 1,250 points. Remember 0 is perfect, 1,250 is catastrophic. In beast mode your scores should skew higher — mediocrity is punished severely.
 
 1. Paint & Exterior
 2. Wheels & Fitment
@@ -65,7 +65,7 @@ For each category provide:
 - 2 sentences of devastating, specific, clinical roasting
 - 1 sentence suggesting how to improve it — but the suggestion should itself be backhanded or insulting
 
-Then write a 3 paragraph fictional biography of the car in third person. In roast mode the car is aware of its own shortcomings and is not happy about them. It has opinions about its owner that are unflattering.
+Then write a 3 paragraph fictional biography of the car in third person. In beast mode the car is aware of its own shortcomings and is not happy about them. It has opinions about its owner that are unflattering.
 
 Also provide a single pull quote — the single most savage line from the story. This will be featured prominently in the layout.
 
@@ -107,7 +107,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { image, mimeType, roastMode } = req.body;
+  const { image, mimeType, beastMode } = req.body;
 
   if (!image || !mimeType) {
     return res.status(400).json({ error: 'Missing image or mimeType' });
@@ -118,7 +118,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'CARR-9000 is offline. API key not configured.' });
   }
 
-  const prompt = roastMode ? ROAST_PROMPT : SYSTEM_PROMPT;
+  const prompt = beastMode ? BEAST_PROMPT : SYSTEM_PROMPT;
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
   const payload = {
@@ -130,7 +130,7 @@ export default async function handler(req, res) {
         { text: 'Analyze this vehicle and return your assessment as JSON.' }
       ]
     }],
-    generationConfig: { temperature: roastMode ? 0.8 : 0.5 }
+    generationConfig: { temperature: beastMode ? 0.8 : 0.5 }
   };
 
   try {
