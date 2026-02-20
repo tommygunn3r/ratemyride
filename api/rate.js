@@ -43,6 +43,14 @@ Return everything as valid JSON in this exact structure:
 
 Return only valid JSON. No markdown, no code fences, no preamble.`;
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '20mb'
+    }
+  }
+};
+
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');

@@ -510,12 +510,31 @@ function handleFile(file) {
 
   const reader = new FileReader();
   reader.onload = e => {
-    const dataUrl = e.target.result;
-    const base64 = dataUrl.split(',')[1];
-    const mimeType = file.type || 'image/jpeg';
-    submitImage(base64, mimeType, dataUrl);
+    compressImage(e.target.result, compressed => {
+      const base64 = compressed.split(',')[1];
+      submitImage(base64, 'image/jpeg', compressed);
+    });
   };
   reader.readAsDataURL(file);
+}
+
+// ─── IMAGE COMPRESSION ───────────────────────────────────────
+function compressImage(dataUrl, callback) {
+  const img = new Image();
+  img.onload = () => {
+    const MAX_DIM = 1600;
+    let { width, height } = img;
+    if (width > MAX_DIM || height > MAX_DIM) {
+      if (width > height) { height = Math.round(height * MAX_DIM / width); width = MAX_DIM; }
+      else { width = Math.round(width * MAX_DIM / height); height = MAX_DIM; }
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+    callback(canvas.toDataURL('image/jpeg', 0.82));
+  };
+  img.src = dataUrl;
 }
 
 // ─── SUBMIT ──────────────────────────────────────────────────
@@ -535,7 +554,13 @@ async function submitImage(base64, mimeType, dataUrl) {
       body: JSON.stringify({ image: base64, mimeType })
     });
 
-    const data = await res.json();
+    let data;
+    const rawText = await res.text();
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      data = { error: res.status === 413 ? 'Image too large for CARR-9000\'s servers. Try a smaller file.' : `Server error ${res.status}.` };
+    }
 
     // Ensure minimum scan duration
     const elapsed = Date.now() - startTime;
