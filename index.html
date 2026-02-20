@@ -305,12 +305,14 @@
       display: none;
       width: 100%;
       max-width: 900px;
+      overflow: hidden;
     }
 
     #result-frame-wrap.active { display: block; }
 
     #result-frame {
-      width: 100%;
+      width: 900px;
+      transform-origin: top left;
       border: none;
       display: block;
       border-radius: 4px;
@@ -1020,8 +1022,9 @@ function renderResult(data, imageDataUrl) {
       setTimeout(() => {
         const h = doc.body.scrollHeight;
         if (h > 200) frame.style.height = h + 'px';
+        scaleFrame();
       }, 200);
-    } catch { /* keep fallback height */ }
+    } catch { scaleFrame(); }
   };
   frame.src = blobUrl;
 
@@ -1050,6 +1053,18 @@ function renderResult(data, imageDataUrl) {
     document.getElementById('result-frame-wrap').classList.add('active');
   }, 400);
 }
+
+// ─── SCALE FRAME ─────────────────────────────────────────────
+function scaleFrame() {
+  const frame = document.getElementById('result-frame');
+  const wrap = document.getElementById('result-frame-wrap');
+  const scale = Math.min(1, wrap.clientWidth / 900);
+  frame.style.transform = scale < 1 ? `scale(${scale})` : '';
+  const naturalHeight = parseInt(frame.style.height) || 1500;
+  wrap.style.height = Math.ceil(naturalHeight * scale) + 'px';
+}
+
+window.addEventListener('resize', scaleFrame);
 
 // ─── DOWNLOAD ────────────────────────────────────────────────
 document.getElementById('btn-download').addEventListener('click', async () => {
@@ -1132,6 +1147,8 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   if (frame.src && frame.src.startsWith('blob:')) URL.revokeObjectURL(frame.src);
   frame.src = 'about:blank';
   frame.style.height = '';
+  frame.style.transform = '';
+  document.getElementById('result-frame-wrap').style.height = '';
 
   document.getElementById('action-bar').classList.remove('active');
   document.getElementById('result-frame-wrap').classList.remove('active');
