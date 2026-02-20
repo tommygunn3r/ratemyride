@@ -7,7 +7,7 @@
   <meta name="description" content="Upload a photo of your car. CARR-9000 will judge it with clinical precision and zero mercy." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;700&family=Caveat:wght@400;700&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -346,6 +346,92 @@
       transform: translateX(-50%) translateY(0);
     }
 
+    /* ─── ROAST MODE ─────────────────────────────────── */
+    body.roast-mode {
+      --accent: #e53935;
+      --accent-dim: rgba(229, 57, 53, 0.15);
+    }
+
+    body.roast-mode #drop-zone {
+      border-color: rgba(229, 57, 53, 0.4);
+      background: rgba(229, 57, 53, 0.03);
+    }
+
+    body.roast-mode #drop-zone:hover,
+    body.roast-mode #drop-zone.drag-over {
+      border-color: #e53935;
+      background: rgba(229, 57, 53, 0.1);
+    }
+
+    body.roast-mode .upload-btn.primary {
+      background: #e53935;
+      border-color: #e53935;
+    }
+
+    body.roast-mode .upload-btn.primary:hover {
+      background: #c62828;
+      border-color: #c62828;
+    }
+
+    body.roast-mode #btn-download {
+      background: #e53935;
+    }
+
+    body.roast-mode #btn-download:hover { background: #c62828; }
+
+    /* ─── ROAST TOGGLE ───────────────────────────────── */
+    #roast-toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 13px;
+      color: var(--text-dim);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #roast-toggle-wrap:hover { color: var(--text); }
+
+    .toggle-track {
+      width: 52px;
+      height: 28px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      position: relative;
+      transition: background 0.25s, border-color 0.25s;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .toggle-thumb {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.4);
+      transition: transform 0.25s, background 0.25s;
+    }
+
+    #roast-checkbox { display: none; }
+
+    #roast-checkbox:checked ~ label .toggle-track {
+      background: #e53935;
+      border-color: #e53935;
+    }
+
+    #roast-checkbox:checked ~ label .toggle-thumb {
+      transform: translateX(24px);
+      background: #fff;
+    }
+
+    #roast-checkbox:checked ~ label #toggle-label-text {
+      color: #e53935;
+    }
+
     /* ─── MOBILE ─────────────────────────────────────── */
     @media (max-width: 480px) {
       #header { padding: 20px 16px 14px; }
@@ -366,8 +452,8 @@
     <div id="upload-section">
       <div id="drop-zone">
         <div class="drop-icon">🚗</div>
-        <div class="drop-title">DROP YOUR CAR HERE</div>
-        <div class="drop-sub">CARR-9000 will render its verdict.<br />JPEG · PNG · WEBP · HEIC · Max 10MB</div>
+        <div class="drop-title" id="drop-title">DROP YOUR CAR HERE</div>
+        <div class="drop-sub" id="drop-sub">CARR-9000 will render its verdict.<br />JPEG · PNG · WEBP · HEIC · Max 10MB</div>
       </div>
       <div class="upload-buttons">
         <button class="upload-btn primary" onclick="document.getElementById('file-input').click()">
@@ -379,6 +465,14 @@
       </div>
       <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" />
       <input type="file" id="camera-input" accept="image/*" capture="environment" />
+
+      <input type="checkbox" id="roast-checkbox" />
+      <div id="roast-toggle-wrap">
+        <label for="roast-checkbox" style="display:flex;align-items:center;gap:12px;cursor:pointer">
+          <div class="toggle-track"><div class="toggle-thumb"></div></div>
+          <span id="toggle-label-text">ROAST MODE</span>
+        </label>
+      </div>
     </div>
 
     <!-- Action buttons (results mode) -->
@@ -423,6 +517,7 @@ let currentData = null;
 let currentImageB64 = null;
 let currentImageMime = null;
 let currentCarName = 'the-vehicle';
+let isRoastMode = false;
 
 // ─── SCAN MESSAGES ───────────────────────────────────────────
 const scanMessages = [
@@ -442,19 +537,54 @@ const scanMessages = [
   'Compiling verdict...',
 ];
 
+const roastScanMessages = [
+  'Disabling diplomatic filters...',
+  'Cataloguing your poor decisions...',
+  'Documenting the evidence...',
+  'Preparing the roast...',
+  'Locating any remaining dignity...',
+  'Assessing the damage...',
+  'Consulting the hall of shame...',
+  'Measuring disappointment levels...',
+  'Verifying owner poor judgment...',
+  'Calculating cringe coefficient...',
+  'Cross-referencing regrettable choices...',
+  'Fabricating excuses on your behalf...',
+  'Drafting condolences...',
+  'Rendering final verdict...',
+];
+
 let scanInterval = null;
 let scanIdx = 0;
 
 function startScan() {
+  const messages = isRoastMode ? roastScanMessages : scanMessages;
   scanIdx = 0;
   const el = document.getElementById('scan-line-text');
-  el.textContent = scanMessages[0];
+  el.textContent = messages[0];
   scanInterval = setInterval(() => {
-    scanIdx = (scanIdx + 1) % scanMessages.length;
-    el.textContent = scanMessages[scanIdx];
+    scanIdx = (scanIdx + 1) % messages.length;
+    el.textContent = messages[scanIdx];
   }, 1100);
   document.getElementById('scan-overlay').classList.add('active');
 }
+
+// ─── ROAST TOGGLE ─────────────────────────────────────────────
+document.getElementById('roast-checkbox').addEventListener('change', function() {
+  isRoastMode = this.checked;
+  document.body.classList.toggle('roast-mode', isRoastMode);
+
+  const logoEl = document.querySelector('#header img');
+  logoEl.src = isRoastMode ? 'assets/logo-roast.png' : 'assets/logo.png';
+
+  document.getElementById('drop-title').textContent = isRoastMode
+    ? 'FEED IT TO CARR-9000'
+    : 'DROP YOUR CAR HERE';
+
+  document.getElementById('drop-sub').innerHTML = isRoastMode
+    ? 'CARR-9000 will render it irrelevant.<br />JPEG · PNG · WEBP · HEIC · Max 10MB'
+    : 'CARR-9000 will render its verdict.<br />JPEG · PNG · WEBP · HEIC · Max 10MB';
+});
 
 function stopScan() {
   clearInterval(scanInterval);
@@ -553,7 +683,7 @@ async function submitImage(base64, mimeType, dataUrl) {
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64, mimeType })
+      body: JSON.stringify({ image: base64, mimeType, roastMode: isRoastMode })
     });
 
     let data;
@@ -611,405 +741,238 @@ function pct(score, max) {
   return Math.min(100, Math.round((score / max) * 100));
 }
 
+// ─── GRADE HELPER (Layout D) ──────────────────────────────────
+function getGrade(score) {
+  if (score <= 250) return 'A+';
+  if (score <= 500) return 'B';
+  if (score <= 750) return 'C';
+  if (score <= 1000) return 'D';
+  return 'F';
+}
+function gradeColor(score) {
+  if (score <= 250) return '#2e7d32';
+  if (score <= 500) return '#558b2f';
+  if (score <= 750) return '#f57f17';
+  if (score <= 1000) return '#e65100';
+  return '#b71c1c';
+}
+
+// ─── SHARED IFRAME FONTS ──────────────────────────────────────
+const FONTS_STANDARD = `<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>`;
+const FONTS_WITH_CAVEAT = `<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Inter:wght@300;400;500;600;700&family=Caveat:wght@400;700&display=swap" rel="stylesheet"/>`;
+
+// ─── LAYOUT A — Classic Editorial ────────────────────────────
+function layoutA(data, imageDataUrl, ctx) {
+  const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead } = ctx;
+  const storyParas = (data.story||'').split(/\n\n+/).filter(p=>p.trim()).map(p=>`<p>${p.trim()}</p>`);
+  const pullHtml = `<div style="border-left:3px solid ${accentColor};padding:16px 20px;margin:24px 0;background:${accentColor}18"><div style="font:italic 700 19px/1.5 'Playfair Display',serif;color:#1a1a1a">"${data.pull_quote}"</div></div>`;
+  if (storyParas.length > 1) storyParas.splice(1, 0, pullHtml); else storyParas.push(pullHtml);
+  const catRows = data.categories.map(cat => {
+    const c = categoryColor(cat.score);
+    return `<div style="padding:10px 0;border-bottom:1px solid #ddd"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px"><span style="font:600 10px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:#333;flex:1">${cat.name}</span><span style="font:700 13px/1 Inter,sans-serif;color:${c}">${cat.score}<span style="font:400 9px/1 Inter,sans-serif;color:#999"> /1,250</span></span></div><div style="height:3px;background:#e0e0e0;border-radius:2px;overflow:hidden;margin-bottom:5px"><div style="height:100%;width:${pct(cat.score,1250)}%;background:${c};border-radius:2px"></div></div><div style="font:400 10px/1.45 Inter,sans-serif;color:#666">${cat.reasoning}</div></div>`;
+  }).join('');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fafaf8;color:#111;font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
+<div style="background:#111;color:#fff;padding:14px 28px;display:flex;align-items:center;justify-content:space-between"><img src="${logoSrc}" style="height:34px"/><div style="font:500 10px/1.6 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.6);text-align:right">Vol. 1 &nbsp;•&nbsp; Issue ${issueNum}<br/>${masthead}</div></div>
+<div style="height:2px;background:linear-gradient(90deg,${accentColor},${accentColor}cc)"></div>
+<div style="position:relative;width:100%;max-height:420px;overflow:hidden;background:#1a1a1a;line-height:0"><img src="${imageDataUrl}" style="width:100%;max-height:420px;object-fit:cover;display:block"/><div style="position:absolute;bottom:0;left:0;right:0;height:120px;background:linear-gradient(transparent,#fafaf8)"></div></div>
+<div style="padding:28px 28px 20px;position:relative;border-bottom:1px solid #e0e0e0">
+  <div style="position:absolute;top:24px;right:28px;width:90px;height:90px;border-radius:50%;border:3px solid ${badgeColor};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
+    <div style="font:900 16px/1 'Playfair Display',serif;color:${badgeColor}">${data.total_score.toLocaleString()}</div>
+    <div style="font:400 8px/1 Inter,sans-serif;color:#888;margin-top:2px">/ 10,000</div>
+    <div style="font:700 7px/1.3 Inter,sans-serif;color:${badgeColor};text-transform:uppercase;letter-spacing:.05em;margin-top:4px;padding:0 4px">${badge.label}</div>
+  </div>
+  <h1 style="font:900 44px/1.05 'Playfair Display',serif;letter-spacing:-.02em;padding-right:110px;color:#0a0a0a">${data.car_name}</h1>
+  <div style="font:italic 400 16px/1.5 'Playfair Display',serif;color:#555;margin-top:10px;padding-right:110px">${data.pull_quote}</div>
+</div>
+<div style="display:flex">
+  <div style="flex:0 0 62%;padding:28px 24px 32px 28px;border-right:1px solid #e0e0e0"><div style="font:400 15px/1.75 'Playfair Display',serif;color:#222;text-align:justify">${storyParas.join('')}</div></div>
+  <div style="flex:0 0 38%;padding:24px 20px 32px 22px;background:#f0f0ee">
+    <div style="font:700 10px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:${accentColor};border-bottom:1px solid #ddd;padding-bottom:10px;margin-bottom:16px">CARR-9000 Assessment</div>
+    ${catRows}
+    <div style="margin-top:18px;padding-top:14px;border-top:2px solid #222;display:flex;justify-content:space-between;align-items:baseline">
+      <div style="font:700 10px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.12em;color:#333">Final Score</div>
+      <div style="text-align:right"><div style="font:900 26px/1 'Playfair Display',serif;color:${badgeColor}">${data.total_score.toLocaleString()}<span style="font:400 11px/1 Inter,sans-serif;color:#999"> / 10,000</span></div><div style="font:700 9px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.1em;color:${badgeColor};margin-top:3px">${badge.label}</div></div>
+    </div>
+  </div>
+</div>
+<div style="background:#111;color:rgba(255,255,255,.5);padding:14px 28px;display:flex;align-items:center;justify-content:space-between"><div style="font:400 9px/1.6 Inter,sans-serif;letter-spacing:.04em">Results generated by CARR-9000. For entertainment purposes only. Accuracy not guaranteed. Feelings not considered.</div><div style="font:700 12px/1 'Playfair Display',serif;color:rgba(255,255,255,.3);font-style:italic">CARR-9000</div></div>
+</body></html>`;
+}
+
+// ─── LAYOUT B — Full Bleed Cover ──────────────────────────────
+function layoutB(data, imageDataUrl, ctx) {
+  const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead } = ctx;
+  const storyParas = (data.story||'').split(/\n\n+/).filter(p=>p.trim()).map(p=>`<p style="font:400 14px/1.7 'Playfair Display',serif;color:#ddd;margin-bottom:14px;text-align:justify">${p.trim()}</p>`).join('');
+  const catRows = data.categories.map(cat => {
+    const c = categoryColor(cat.score);
+    return `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font:600 9px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.6)">${cat.name}</span><span style="font:700 12px/1 Inter,sans-serif;color:${c}">${cat.score}</span></div><div style="height:2px;background:rgba(255,255,255,.1);border-radius:1px"><div style="height:100%;width:${pct(cat.score,1250)}%;background:${c};border-radius:1px"></div></div></div>`;
+  }).join('');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#0d0d0d;color:#fff;font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
+<div style="position:relative;height:500px;overflow:hidden;background:#111">
+  <img src="${imageDataUrl}" style="width:100%;height:100%;object-fit:cover;display:block"/>
+  <div style="position:absolute;top:0;left:0;right:0;padding:16px 24px;background:linear-gradient(rgba(0,0,0,.8),transparent);display:flex;align-items:center;justify-content:space-between">
+    <img src="${logoSrc}" style="height:30px"/>
+    <span style="font:500 9px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.5)">Issue ${issueNum} &nbsp;·&nbsp; ${masthead}</span>
+  </div>
+  <div style="position:absolute;bottom:0;left:0;right:0;padding:28px 28px 32px;background:linear-gradient(transparent,rgba(0,0,0,.95))">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px">
+      <div style="flex:1">
+        <h1 style="font:900 56px/0.95 'Playfair Display',serif;color:#fff;letter-spacing:-.02em;text-shadow:0 2px 12px rgba(0,0,0,.5)">${data.car_name}</h1>
+        <p style="font:italic 400 17px/1.45 'Playfair Display',serif;color:rgba(255,255,255,.75);margin-top:10px">"${data.pull_quote}"</p>
+      </div>
+      <div style="width:88px;height:88px;border-radius:50%;border:3px solid ${badgeColor};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;flex-shrink:0;background:rgba(0,0,0,.5)">
+        <div style="font:900 15px/1 'Playfair Display',serif;color:${badgeColor}">${data.total_score.toLocaleString()}</div>
+        <div style="font:400 7px/1 Inter,sans-serif;color:rgba(255,255,255,.5);margin-top:2px">/ 10,000</div>
+        <div style="font:700 7px/1.2 Inter,sans-serif;color:${badgeColor};text-transform:uppercase;letter-spacing:.04em;margin-top:4px;padding:0 6px">${badge.label}</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div style="height:2px;background:linear-gradient(90deg,${accentColor},${accentColor}88)"></div>
+<div style="display:flex">
+  <div style="flex:1;padding:28px 24px 32px 28px;border-right:1px solid rgba(255,255,255,.08)">${storyParas}</div>
+  <div style="flex:0 0 320px;padding:24px 20px 32px 22px;background:#111">
+    <div style="font:700 10px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:${accentColor};border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:10px;margin-bottom:14px">CARR-9000 Assessment</div>
+    ${catRows}
+    <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,.2);display:flex;justify-content:space-between;align-items:baseline">
+      <span style="font:700 10px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.5)">Total</span>
+      <div style="text-align:right"><div style="font:900 24px/1 'Playfair Display',serif;color:${badgeColor}">${data.total_score.toLocaleString()}<span style="font:400 10px/1 Inter,sans-serif;color:rgba(255,255,255,.4)"> / 10k</span></div><div style="font:700 8px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:${badgeColor};margin-top:3px">${badge.label}</div></div>
+    </div>
+  </div>
+</div>
+<div style="background:#0a0a0a;padding:12px 28px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.06)"><div style="font:400 9px/1.5 Inter,sans-serif;color:rgba(255,255,255,.3);letter-spacing:.04em">Results generated by CARR-9000. For entertainment purposes only. Feelings not considered.</div><div style="font:700 10px/1 'Playfair Display',serif;color:rgba(255,255,255,.2);font-style:italic">CARR-9000</div></div>
+</body></html>`;
+}
+
+// ─── LAYOUT C — Centerfold ────────────────────────────────────
+function layoutC(data, imageDataUrl, ctx) {
+  const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead } = ctx;
+  const storyParas = (data.story||'').split(/\n\n+/).filter(p=>p.trim());
+  const half = Math.ceil(storyParas.length / 2);
+  const col1 = storyParas.slice(0, half).map(p=>`<p style="font:400 13px/1.7 'Playfair Display',serif;color:#222;margin-bottom:12px;text-align:justify">${p.trim()}</p>`).join('');
+  const col2 = storyParas.slice(half).map(p=>`<p style="font:400 13px/1.7 'Playfair Display',serif;color:#222;margin-bottom:12px;text-align:justify">${p.trim()}</p>`).join('');
+  const tiles = data.categories.map(cat => {
+    const c = categoryColor(cat.score);
+    const shortName = cat.name.split(' ').slice(0,2).join(' ');
+    return `<div style="flex:1;text-align:center;padding:10px 6px;border-right:1px solid #e0e0e0"><div style="font:600 8px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:5px">${shortName}</div><div style="font:700 18px/1 Inter,sans-serif;color:${c}">${cat.score}</div><div style="font:400 8px/1 Inter,sans-serif;color:#aaa;margin-top:2px">/1250</div><div style="height:2px;background:#e8e8e8;border-radius:1px;margin-top:6px"><div style="height:100%;width:${pct(cat.score,1250)}%;background:${c};border-radius:1px"></div></div></div>`;
+  }).join('');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#111;font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
+<div style="background:#111;padding:12px 24px;display:flex;align-items:center;justify-content:space-between"><img src="${logoSrc}" style="height:30px"/><div style="font:500 9px/1.6 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.5);text-align:right">Vol. 1 · Issue ${issueNum}<br/>${masthead}</div></div>
+<div style="height:2px;background:linear-gradient(90deg,${accentColor},${accentColor}66)"></div>
+<div style="display:flex;background:#f5f5f5;border-bottom:2px solid #111">${tiles}</div>
+<div style="position:relative;height:340px;overflow:hidden;background:#1a1a1a">
+  <img src="${imageDataUrl}" style="width:100%;height:100%;object-fit:cover;display:block"/>
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center">
+    <div style="text-align:center;padding:0 80px"><p style="font:italic 700 26px/1.45 'Playfair Display',serif;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.7)">"${data.pull_quote}"</p></div>
+  </div>
+</div>
+<div style="padding:16px 24px 12px;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;gap:16px">
+  <div style="flex:1"><h1 style="font:900 40px/1 'Playfair Display',serif;color:#0a0a0a;letter-spacing:-.02em">${data.car_name}</h1></div>
+  <div style="width:80px;height:80px;border-radius:50%;border:3px solid ${badgeColor};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;flex-shrink:0">
+    <div style="font:900 14px/1 'Playfair Display',serif;color:${badgeColor}">${data.total_score.toLocaleString()}</div>
+    <div style="font:400 7px/1 Inter,sans-serif;color:#999;margin-top:2px">/ 10,000</div>
+    <div style="font:700 7px/1.2 Inter,sans-serif;color:${badgeColor};text-transform:uppercase;letter-spacing:.04em;margin-top:3px;padding:0 4px">${badge.label}</div>
+  </div>
+</div>
+<div style="display:flex;padding:20px 24px 28px;gap:24px"><div style="flex:1">${col1}</div><div style="flex:1;border-left:1px solid #e0e0e0;padding-left:24px">${col2}</div></div>
+<div style="background:#111;padding:12px 24px;display:flex;justify-content:space-between;align-items:center"><div style="font:400 9px/1.5 Inter,sans-serif;color:rgba(255,255,255,.4)">Results generated by CARR-9000. For entertainment purposes only. Feelings not considered.</div><div style="font:700 10px/1 'Playfair Display',serif;color:rgba(255,255,255,.25);font-style:italic">CARR-9000</div></div>
+</body></html>`;
+}
+
+// ─── LAYOUT D — Tabloid ───────────────────────────────────────
+function layoutD(data, imageDataUrl, ctx) {
+  const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead } = ctx;
+  const storyParas = (data.story||'').split(/\n\n+/).filter(p=>p.trim()).map(p => {
+    const words = p.trim().split(' ');
+    const first = words.shift();
+    return `<p style="font:400 13px/1.65 Inter,sans-serif;color:#222;margin-bottom:12px"><strong style="font-weight:800;font-size:14px">${first}</strong> ${words.join(' ')}</p>`;
+  }).join('');
+  const reportCard = data.categories.map(cat => {
+    const grade = getGrade(cat.score);
+    const gc = gradeColor(cat.score);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #eee"><div style="flex:1"><div style="font:700 9px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#333">${cat.name}</div><div style="font:400 9px/1.3 Inter,sans-serif;color:#888;margin-top:2px">${cat.reasoning.split('.')[0]}.</div></div><div style="font:400 9px/1 Inter,sans-serif;color:#999;flex-shrink:0">${cat.score}</div><div style="font:900 22px/1 Inter,sans-serif;color:${gc};min-width:32px;text-align:center;flex-shrink:0">${grade}</div></div>`;
+  }).join('');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#111;font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
+<div style="background:#111">
+  <div style="background:${accentColor};padding:7px 24px;display:flex;align-items:center;justify-content:space-between"><img src="${logoSrc}" style="height:26px"/><span style="font:700 9px/1 Inter,sans-serif;color:#000;letter-spacing:.14em;text-transform:uppercase">Issue ${issueNum} &nbsp;·&nbsp; ${masthead}</span></div>
+</div>
+<div style="padding:20px 28px 16px;border-bottom:4px solid #111">
+  <h1 style="font:900 68px/0.92 Inter,sans-serif;color:#111;text-transform:uppercase;letter-spacing:-.03em;word-break:break-word">${data.car_name}</h1>
+  <p style="font:italic 400 20px/1.4 'Playfair Display',serif;color:#555;margin-top:14px;border-left:4px solid ${accentColor};padding-left:14px">"${data.pull_quote}"</p>
+</div>
+<div style="display:flex">
+  <div style="flex:0 0 52%;padding:20px 20px 24px 28px;border-right:2px solid #111">${storyParas}
+    <div style="margin-top:16px;height:220px;overflow:hidden;border:2px solid #111"><img src="${imageDataUrl}" style="width:100%;height:100%;object-fit:cover"/></div>
+  </div>
+  <div style="flex:1;padding:20px 20px 24px 18px">
+    <div style="font:700 9px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:${accentColor};border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:10px">VEHICULAR REPORT CARD</div>
+    ${reportCard}
+    <div style="margin-top:14px;padding-top:12px;border-top:2px solid #111;display:flex;justify-content:space-between;align-items:center">
+      <span style="font:700 10px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.1em;color:#333">Final Score</span>
+      <div style="text-align:right"><div style="font:900 30px/1 Inter,sans-serif;color:${accentColor}">${data.total_score.toLocaleString()}<span style="font:400 11px/1 Inter,sans-serif;color:#999"> / 10,000</span></div><div style="font:700 8px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:${badgeColor};margin-top:3px">${badge.label}</div></div>
+    </div>
+  </div>
+</div>
+<div style="background:#111;padding:12px 28px;display:flex;justify-content:space-between;align-items:center"><div style="font:400 9px/1.5 Inter,sans-serif;color:rgba(255,255,255,.4);letter-spacing:.04em">Results generated by CARR-9000. For entertainment purposes only. Feelings not considered.</div><div style="font:700 10px/1 'Playfair Display',serif;color:rgba(255,255,255,.25);font-style:italic">CARR-9000</div></div>
+</body></html>`;
+}
+
+// ─── LAYOUT E — Workshop Inspection ──────────────────────────
+function layoutE(data, imageDataUrl, ctx) {
+  const { badge, badgeColor, logoSrc, issueNum, accentColor } = ctx;
+  const stamps = [
+    { max: 2500, text: 'APPROVED', color: '#2e7d32' },
+    { max: 5000, text: 'MARGINAL', color: '#f57f17' },
+    { max: 7500, text: 'CONDEMNED', color: '#e65100' },
+    { max: 10000, text: 'TOTAL LOSS', color: '#b71c1c' }
+  ];
+  const stamp = stamps.find(s => data.total_score <= s.max) || stamps[3];
+  const today = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}).toUpperCase();
+  const storyText = (data.story||'').split(/\n\n+/).filter(p=>p.trim()).map(p=>`<p style="margin-bottom:10px">${p.trim()}</p>`).join('');
+  const checklist = data.categories.map(cat => {
+    const pass = cat.score <= 625;
+    const ic = pass ? '#2e7d32' : '#c62828';
+    return `<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px dashed #c5b9a0"><span style="font:700 14px/1 'Courier New',monospace;color:${ic};flex-shrink:0;margin-top:1px">${pass?'☑':'☒'}</span><div style="flex:1"><div style="font:700 9px/1 'Courier New',monospace;text-transform:uppercase;letter-spacing:.06em;color:#333">${cat.name}</div><div style="font:400 9px/1 'Courier New',monospace;color:${ic};margin-top:2px">${pass?'PASS':'FAIL'} — ${cat.score}/1250</div><div style="font:400 9px/1.4 'Courier New',monospace;color:#666;margin-top:3px">${cat.reasoning}</div></div></div>`;
+  }).join('');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_WITH_CAVEAT}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fdf8e1;color:#111;font-family:'Courier New',monospace;width:900px;min-width:900px}</style></head><body>
+<div style="background:#2c2c2c;padding:14px 28px;display:flex;align-items:center;justify-content:space-between"><img src="${logoSrc}" style="height:32px"/><div style="font:700 9px/1.6 'Courier New',monospace;color:#aaa;text-align:right;letter-spacing:.06em">INSPECTION FORM NO. ${issueNum}<br/>DATE: ${today}<br/>INSPECTOR: CARR-9000</div></div>
+<div style="padding:18px 28px 16px;border-bottom:2px dashed #b5a98a;position:relative">
+  <div style="position:absolute;top:18px;right:28px;transform:rotate(-8deg);border:4px solid ${stamp.color};border-radius:4px;padding:8px 14px;text-align:center;opacity:.8">
+    <div style="font:900 24px/1 Inter,sans-serif;color:${stamp.color};letter-spacing:.06em;text-transform:uppercase;white-space:nowrap">${stamp.text}</div>
+    <div style="font:700 9px/1 'Courier New',monospace;color:${stamp.color};margin-top:4px">${data.total_score} / 10,000</div>
+  </div>
+  <div style="font:700 10px/1 'Courier New',monospace;text-transform:uppercase;letter-spacing:.08em;color:#777;margin-bottom:6px">VEHICLE IDENTIFICATION</div>
+  <div style="font:900 38px/1 'Playfair Display',serif;color:#1a1a1a;padding-right:200px">${data.car_name}</div>
+  <div style="font:italic 400 14px/1.5 'Playfair Display',serif;color:#555;margin-top:8px;padding-right:200px">"${data.pull_quote}"</div>
+</div>
+<div style="display:flex">
+  <div style="flex:0 0 42%;padding:16px 16px 20px 28px;border-right:2px dashed #b5a98a">
+    <div style="font:700 9px/1 'Courier New',monospace;text-transform:uppercase;letter-spacing:.1em;color:#777;margin-bottom:10px">☐ INSPECTION CHECKLIST</div>
+    ${checklist}
+  </div>
+  <div style="flex:1;padding:16px 24px 20px 20px">
+    <div style="font:700 9px/1 'Courier New',monospace;text-transform:uppercase;letter-spacing:.1em;color:#777;margin-bottom:10px">✎ INSPECTOR NOTES</div>
+    <div style="font:400 16px/1.85 Caveat,cursive;color:#1a1a1a;background:repeating-linear-gradient(transparent,transparent 29px,#c5b9a0 29px,#c5b9a0 30px);padding-bottom:4px;min-height:180px">${storyText}</div>
+    <div style="margin-top:14px;height:190px;overflow:hidden;border:1px solid #b5a98a"><img src="${imageDataUrl}" style="width:100%;height:100%;object-fit:cover"/></div>
+  </div>
+</div>
+<div style="background:#2c2c2c;padding:12px 28px;display:flex;justify-content:space-between;align-items:center"><div style="font:400 9px/1.5 'Courier New',monospace;color:rgba(255,255,255,.4);letter-spacing:.04em">RESULTS GENERATED BY CARR-9000. FOR ENTERTAINMENT PURPOSES ONLY. ACCURACY NOT GUARANTEED. FEELINGS NOT CONSIDERED.</div><div style="font:700 9px/1 'Courier New',monospace;color:rgba(255,255,255,.25);letter-spacing:.1em">CARR-9000</div></div>
+</body></html>`;
+}
+
 // ─── RENDER MAGAZINE ─────────────────────────────────────────
 function renderResult(data, imageDataUrl) {
   const badge = totalBadge(data.total_score);
+  const badgeColor = isRoastMode ? '#e53935' : badge.color;
+  const accentColor = isRoastMode ? '#e53935' : '#f5a623';
+  const logoSrc = document.querySelector('#header img').src;
   const issueNum = Math.floor(Math.random() * 900) + 100;
 
-  // Build story paragraphs
-  const storyParagraphs = (data.story || '')
-    .split(/\n\n+/)
-    .filter(p => p.trim())
-    .map(p => `<p>${p.trim()}</p>`);
+  const masthead = isRoastMode ? 'CARR-9000 ROAST QUARTERLY' : 'CARR-9000 AUTOMOTIVE QUARTERLY';
+  const ctx = { badge, badgeColor, accentColor, logoSrc, issueNum, masthead };
 
-  // Insert pull quote after first paragraph
-  const pullQuoteHtml = `
-    <div class="pull-quote-box">
-      <div class="pull-quote-text">"${data.pull_quote}"</div>
-    </div>`;
-
-  if (storyParagraphs.length > 1) {
-    storyParagraphs.splice(1, 0, pullQuoteHtml);
-  } else {
-    storyParagraphs.push(pullQuoteHtml);
-  }
-
-  // Category rows
-  const categoryRows = data.categories.map(cat => {
-    const color = categoryColor(cat.score);
-    const barPct = pct(cat.score, 1250);
-    return `
-      <div class="cat-row">
-        <div class="cat-header">
-          <span class="cat-name">${cat.name}</span>
-          <span class="cat-score" style="color:${color}">${cat.score}<span class="cat-max"> / 1,250</span></span>
-        </div>
-        <div class="cat-bar-wrap">
-          <div class="cat-bar" style="width:${barPct}%;background:${color}"></div>
-        </div>
-        <div class="cat-reasoning">${cat.reasoning}</div>
-      </div>`;
-  }).join('');
-
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: #fafaf8;
-    color: #111;
-    font-family: 'Inter', sans-serif;
-    width: 900px;
-    min-width: 900px;
-  }
-
-  /* MASTHEAD */
-  .masthead {
-    background: #111;
-    color: #fff;
-    padding: 14px 28px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-  }
-  .masthead-logo { height: 34px; width: auto; }
-  .masthead-issue {
-    font-family: 'Inter', sans-serif;
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.6);
-    text-align: right;
-    line-height: 1.6;
-  }
-  .masthead-rule {
-    height: 2px;
-    background: linear-gradient(90deg, #f5a623, #e0941a);
-  }
-
-  /* HERO */
-  .hero-wrap {
-    position: relative;
-    width: 100%;
-    max-height: 420px;
-    overflow: hidden;
-    line-height: 0;
-    background: #1a1a1a;
-  }
-  .hero-wrap img {
-    width: 100%;
-    max-height: 420px;
-    object-fit: cover;
-    object-position: center;
-    display: block;
-  }
-  .hero-vignette {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 120px;
-    background: linear-gradient(transparent, #fafaf8);
-  }
-
-  /* HEADLINE BLOCK */
-  .headline-block {
-    padding: 28px 28px 20px;
-    position: relative;
-    border-bottom: 1px solid #e0e0e0;
-  }
-  .score-badge {
-    position: absolute;
-    top: 24px;
-    right: 28px;
-    width: 90px;
-    height: 90px;
-    border-radius: 50%;
-    border: 3px solid ${badge.color};
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    flex-shrink: 0;
-  }
-  .badge-score {
-    font-family: 'Playfair Display', serif;
-    font-size: 16px;
-    font-weight: 900;
-    color: ${badge.color};
-    line-height: 1;
-  }
-  .badge-denom {
-    font-size: 8px;
-    color: #888;
-    margin-top: 1px;
-  }
-  .badge-label {
-    font-size: 7.5px;
-    font-weight: 700;
-    color: ${badge.color};
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin-top: 4px;
-    padding: 0 4px;
-    line-height: 1.3;
-    text-align: center;
-  }
-  .car-name {
-    font-family: 'Playfair Display', serif;
-    font-size: 44px;
-    font-weight: 900;
-    line-height: 1.05;
-    letter-spacing: -0.02em;
-    padding-right: 110px;
-    color: #0a0a0a;
-  }
-  .car-subhead {
-    font-family: 'Playfair Display', serif;
-    font-style: italic;
-    font-size: 16px;
-    color: #555;
-    margin-top: 10px;
-    padding-right: 110px;
-    line-height: 1.5;
-  }
-
-  /* CONTENT COLUMNS */
-  .content-cols {
-    display: flex;
-    gap: 0;
-    padding: 0 0 0 0;
-  }
-  .col-story {
-    flex: 0 0 62%;
-    padding: 28px 24px 32px 28px;
-    border-right: 1px solid #e0e0e0;
-  }
-  .col-spec {
-    flex: 0 0 38%;
-    padding: 24px 20px 32px 22px;
-    background: #f0f0ee;
-  }
-
-  /* STORY */
-  .story-body p {
-    font-family: 'Playfair Display', serif;
-    font-size: 15px;
-    line-height: 1.75;
-    color: #222;
-    text-align: justify;
-    margin-bottom: 18px;
-    hyphens: auto;
-  }
-  .story-body p:last-child { margin-bottom: 0; }
-
-  .pull-quote-box {
-    border-left: 3px solid #f5a623;
-    padding: 16px 20px;
-    margin: 24px 0;
-    background: rgba(245, 166, 35, 0.05);
-  }
-  .pull-quote-text {
-    font-family: 'Playfair Display', serif;
-    font-style: italic;
-    font-size: 19px;
-    line-height: 1.5;
-    color: #1a1a1a;
-  }
-
-  /* SPEC SHEET */
-  .spec-header {
-    font-family: 'Inter', sans-serif;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: #f5a623;
-    border-bottom: 1px solid #ddd;
-    padding-bottom: 10px;
-    margin-bottom: 16px;
-  }
-
-  .cat-row {
-    padding: 12px 0;
-    border-bottom: 1px solid #ddd;
-  }
-  .cat-row:last-of-type { border-bottom: none; }
-
-  .cat-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 6px;
-    gap: 8px;
-  }
-  .cat-name {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #333;
-    flex: 1;
-    line-height: 1.3;
-  }
-  .cat-score {
-    font-family: 'Inter', sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .cat-max {
-    font-size: 10px;
-    font-weight: 400;
-    color: #999;
-  }
-  .cat-bar-wrap {
-    height: 4px;
-    background: #ddd;
-    border-radius: 2px;
-    margin-bottom: 6px;
-    overflow: hidden;
-  }
-  .cat-bar {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 0.5s ease;
-  }
-  .cat-reasoning {
-    font-size: 11px;
-    color: #666;
-    line-height: 1.5;
-  }
-
-  .spec-total {
-    margin-top: 20px;
-    padding-top: 16px;
-    border-top: 2px solid #222;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .spec-total-label {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: #333;
-  }
-  .spec-total-score {
-    font-family: 'Playfair Display', serif;
-    font-size: 28px;
-    font-weight: 900;
-    color: ${badge.color};
-    line-height: 1;
-  }
-  .spec-total-denom {
-    font-size: 12px;
-    color: #999;
-    font-weight: 400;
-    margin-left: 2px;
-  }
-  .spec-verdict {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: ${badge.color};
-    margin-top: 4px;
-    text-align: right;
-  }
-
-  /* FOOTER */
-  .mag-footer {
-    background: #111;
-    color: rgba(255,255,255,0.5);
-    padding: 14px 28px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-  }
-  .mag-footer-left {
-    font-size: 9px;
-    line-height: 1.6;
-    letter-spacing: 0.04em;
-    max-width: 560px;
-  }
-  .mag-footer-right {
-    font-family: 'Playfair Display', serif;
-    font-size: 12px;
-    font-weight: 700;
-    color: rgba(255,255,255,0.35);
-    white-space: nowrap;
-    font-style: italic;
-  }
-</style>
-</head>
-<body>
-  <!-- MASTHEAD -->
-  <div class="masthead">
-    <img class="masthead-logo" src="${document.querySelector('#header img').src}" alt="Rate My Ride" />
-    <div class="masthead-issue">
-      Vol. 1 &nbsp;•&nbsp; Issue ${issueNum}<br/>
-      CARR-9000 AUTOMOTIVE QUARTERLY
-    </div>
-  </div>
-  <div class="masthead-rule"></div>
-
-  <!-- HERO IMAGE -->
-  <div class="hero-wrap">
-    <img src="${imageDataUrl}" alt="Submitted vehicle" />
-    <div class="hero-vignette"></div>
-  </div>
-
-  <!-- HEADLINE BLOCK -->
-  <div class="headline-block">
-    <div class="score-badge">
-      <div class="badge-score">${data.total_score.toLocaleString()}</div>
-      <div class="badge-denom">/ 10,000</div>
-      <div class="badge-label">${badge.label}</div>
-    </div>
-    <h1 class="car-name">${data.car_name}</h1>
-    <div class="car-subhead">${data.pull_quote}</div>
-  </div>
-
-  <!-- CONTENT -->
-  <div class="content-cols">
-    <div class="col-story">
-      <div class="story-body">
-        ${storyParagraphs.join('\n')}
-      </div>
-    </div>
-    <div class="col-spec">
-      <div class="spec-header">CARR-9000 Assessment</div>
-      ${categoryRows}
-      <div class="spec-total">
-        <div>
-          <div class="spec-total-label">Final Score</div>
-        </div>
-        <div style="text-align:right">
-          <div class="spec-total-score">${data.total_score.toLocaleString()}<span class="spec-total-denom"> / 10,000</span></div>
-          <div class="spec-verdict">${badge.label}</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- FOOTER -->
-  <div class="mag-footer">
-    <div class="mag-footer-left">Results generated by CARR-9000. For entertainment purposes only. Accuracy not guaranteed. Feelings not considered.</div>
-    <div class="mag-footer-right">CARR-9000</div>
-  </div>
-</body>
-</html>`;
+  const layouts = [layoutA, layoutB, layoutC, layoutD, layoutE];
+  const html = layouts[Math.floor(Math.random() * layouts.length)](data, imageDataUrl, ctx);
 
   const blob = new Blob([html], { type: 'text/html' });
   const blobUrl = URL.createObjectURL(blob);
@@ -1072,6 +1035,32 @@ function scaleFrame() {
 
 window.addEventListener('resize', scaleFrame);
 
+// ─── CAPTURE FRAME (export quality fix) ──────────────────────
+async function captureFrame() {
+  const frame = document.getElementById('result-frame');
+  const wrap = document.getElementById('result-frame-wrap');
+  const savedTransform = frame.style.transform;
+  const savedOverflow = wrap.style.overflow;
+  frame.style.transform = '';
+  wrap.style.overflow = 'visible';
+  await new Promise(r => setTimeout(r, 50));
+  const frameDoc = frame.contentDocument || frame.contentWindow.document;
+  const canvas = await html2canvas(frameDoc.body, {
+    scale: 2,
+    useCORS: true,
+    allowTaint: false,
+    logging: false,
+    backgroundColor: null,
+    width: 900,
+    windowWidth: 900,
+    scrollX: 0,
+    scrollY: 0
+  });
+  frame.style.transform = savedTransform;
+  wrap.style.overflow = savedOverflow;
+  return canvas;
+}
+
 // ─── DOWNLOAD ────────────────────────────────────────────────
 document.getElementById('btn-download').addEventListener('click', async () => {
   const btn = document.getElementById('btn-download');
@@ -1079,18 +1068,7 @@ document.getElementById('btn-download').addEventListener('click', async () => {
   btn.disabled = true;
 
   try {
-    const frame = document.getElementById('result-frame');
-    const frameDoc = frame.contentDocument || frame.contentWindow.document;
-
-    const canvas = await html2canvas(frameDoc.body, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#fafaf8',
-      width: 900,
-      windowWidth: 900
-    });
-
+    const canvas = await captureFrame();
     const link = document.createElement('a');
     link.download = `ratemyride-${currentCarName}.jpg`;
     link.href = canvas.toDataURL('image/jpeg', 0.92);
@@ -1112,12 +1090,7 @@ document.getElementById('btn-share').addEventListener('click', async () => {
 
   if (navigator.share) {
     try {
-      const frame = document.getElementById('result-frame');
-      const frameDoc = frame.contentDocument || frame.contentWindow.document;
-      const canvas = await html2canvas(frameDoc.body, {
-        scale: 2, useCORS: true, allowTaint: true,
-        backgroundColor: '#fafaf8', width: 900, windowWidth: 900
-      });
+      const canvas = await captureFrame();
       canvas.toBlob(async blob => {
         const file = new File([blob], `ratemyride-${currentCarName}.jpg`, { type: 'image/jpeg' });
         try {
@@ -1167,6 +1140,14 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   // Reset file inputs
   document.getElementById('file-input').value = '';
   document.getElementById('camera-input').value = '';
+
+  // Reset roast mode
+  document.getElementById('roast-checkbox').checked = false;
+  isRoastMode = false;
+  document.body.classList.remove('roast-mode');
+  document.querySelector('#header img').src = 'assets/logo.png';
+  document.getElementById('drop-title').textContent = 'DROP YOUR CAR HERE';
+  document.getElementById('drop-sub').innerHTML = 'CARR-9000 will render its verdict.<br />JPEG · PNG · WEBP · HEIC · Max 10MB';
 });
 </script>
 </body>
