@@ -1022,9 +1022,8 @@ function renderResult(data, imageDataUrl) {
       setTimeout(() => {
         const h = doc.body.scrollHeight;
         if (h > 200) frame.style.height = h + 'px';
-        scaleFrame();
       }, 200);
-    } catch { scaleFrame(); }
+    } catch { /* keep fallback height */ }
   };
   frame.src = blobUrl;
 
@@ -1051,6 +1050,7 @@ function renderResult(data, imageDataUrl) {
     document.getElementById('upload-section').style.display = 'none';
     document.getElementById('action-bar').classList.add('active');
     document.getElementById('result-frame-wrap').classList.add('active');
+    scaleFrame();
   }, 400);
 }
 
@@ -1058,6 +1058,7 @@ function renderResult(data, imageDataUrl) {
 function scaleFrame() {
   const frame = document.getElementById('result-frame');
   const wrap = document.getElementById('result-frame-wrap');
+  if (!wrap.clientWidth) return;
   const scale = Math.min(1, wrap.clientWidth / 900);
   frame.style.transform = scale < 1 ? `scale(${scale})` : '';
   const naturalHeight = parseInt(frame.style.height) || 1500;
