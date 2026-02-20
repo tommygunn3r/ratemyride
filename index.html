@@ -1017,13 +1017,18 @@ function renderResult(data, imageDataUrl) {
   const frame = document.getElementById('result-frame');
   frame.style.height = '1500px';
   frame.onload = () => {
-    try {
-      const doc = frame.contentDocument || frame.contentWindow.document;
-      setTimeout(() => {
+    const measure = () => {
+      try {
+        const doc = frame.contentDocument || frame.contentWindow.document;
         const h = doc.body.scrollHeight;
-        if (h > 200) frame.style.height = h + 'px';
-      }, 200);
-    } catch { /* keep fallback height */ }
+        if (h > 200) {
+          frame.style.height = h + 'px';
+          scaleFrame();
+        }
+      } catch { /* keep fallback height */ }
+    };
+    setTimeout(measure, 500);   // after wrap is visible
+    setTimeout(measure, 1500);  // after Google Fonts load
   };
   frame.src = blobUrl;
 
