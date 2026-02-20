@@ -1013,18 +1013,17 @@ function renderResult(data, imageDataUrl) {
   const blobUrl = URL.createObjectURL(blob);
 
   const frame = document.getElementById('result-frame');
-  frame.src = blobUrl;
-
+  frame.style.height = '1500px';
   frame.onload = () => {
-    // Auto-size iframe to content
     try {
       const doc = frame.contentDocument || frame.contentWindow.document;
-      const h = doc.body.scrollHeight;
-      frame.style.height = h + 'px';
-    } catch {
-      frame.style.height = '1400px';
-    }
+      setTimeout(() => {
+        const h = doc.body.scrollHeight;
+        if (h > 200) frame.style.height = h + 'px';
+      }, 200);
+    } catch { /* keep fallback height */ }
   };
+  frame.src = blobUrl;
 
   // Show results UI
   document.getElementById('upload-section').style.opacity = '0';
