@@ -99,8 +99,7 @@ export default async function handler(req, res) {
       }
     ],
     generationConfig: {
-      temperature: 0.5,
-      responseMimeType: 'application/json'
+      temperature: 0.5
     }
   };
 
@@ -113,8 +112,12 @@ export default async function handler(req, res) {
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
-      console.error('Gemini error:', errText);
-      return res.status(502).json({ error: 'CARR-9000 encountered a transmission error. Try again.' });
+      console.error(`Gemini error ${geminiRes.status}:`, errText);
+      let detail = '';
+      try { detail = JSON.parse(errText)?.error?.message || ''; } catch {}
+      return res.status(502).json({
+        error: `CARR-9000 transmission error (${geminiRes.status})${detail ? ': ' + detail : '. Try again.'}`
+      });
     }
 
     const geminiData = await geminiRes.json();
