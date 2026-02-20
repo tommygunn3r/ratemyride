@@ -1071,7 +1071,7 @@ document.getElementById('btn-download').addEventListener('click', async () => {
 document.getElementById('btn-share').addEventListener('click', async () => {
   if (!currentData) return;
   const badge = totalBadge(currentData.total_score);
-  const shareText = `CARR-9000 has issued its verdict on ${currentData.car_name}.\nFinal Score: ${currentData.total_score} / 10,000 — "${badge.label}"\nRate your ride at ratemyride.gg`;
+  const shareText = `CARR-9000 has issued its verdict on ${currentData.car_name}.\nFinal Score: ${currentData.total_score} / 10,000 — "${badge.label}"`;
 
   if (navigator.share) {
     try {
