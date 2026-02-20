@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rate My Ride — CARR-9000 Automotive Analysis</title>
+  <title>Roasted Rides — CARR-9000 Automotive Analysis</title>
   <meta name="description" content="Upload a photo of your car. CARR-9000 will judge it with clinical precision and zero mercy." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -446,7 +446,7 @@
 <body>
 <div id="app">
   <header id="header">
-    <img src="assets/logo.png" alt="Rate My Ride" />
+    <img src="assets/logo.png" alt="Roasted Rides" />
   </header>
 
   <main id="main">
@@ -1070,7 +1070,7 @@ document.getElementById('btn-download').addEventListener('click', async () => {
   try {
     const canvas = await captureFrame();
     const link = document.createElement('a');
-    link.download = `ratemyride-${currentCarName}.jpg`;
+    link.download = `roastedrides-${currentCarName}.jpg`;
     link.href = canvas.toDataURL('image/jpeg', 0.92);
     link.click();
   } catch (err) {
@@ -1092,11 +1092,11 @@ document.getElementById('btn-share').addEventListener('click', async () => {
     try {
       const canvas = await captureFrame();
       canvas.toBlob(async blob => {
-        const file = new File([blob], `ratemyride-${currentCarName}.jpg`, { type: 'image/jpeg' });
+        const file = new File([blob], `roastedrides-${currentCarName}.jpg`, { type: 'image/jpeg' });
         try {
-          await navigator.share({ title: 'Rate My Ride', text: shareText, files: [file] });
+          await navigator.share({ title: 'Roasted Rides', text: shareText, files: [file] });
         } catch {
-          await navigator.share({ title: 'Rate My Ride', text: shareText });
+          await navigator.share({ title: 'Roasted Rides', text: shareText });
         }
       }, 'image/jpeg', 0.92);
     } catch (err) {
