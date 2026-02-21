@@ -701,8 +701,7 @@ document.getElementById('file-input').addEventListener('change', e => {
 });
 
 document.getElementById('camera-input').addEventListener('change', e => {
-  if (e.target.files.length) addImages(e.target.files);
-  e.target.value = '';
+  if (e.target.files.length) addImages(e.target.files, true);
 });
 
 document.getElementById('btn-rate').addEventListener('click', () => {
@@ -711,9 +710,9 @@ document.getElementById('btn-rate').addEventListener('click', () => {
 
 // ─── IMAGE QUEUE ──────────────────────────────────────────────
 const MAX_IMAGES = 3;
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
-function addImages(fileList) {
+function addImages(fileList, fromCamera = false) {
   const files = Array.from(fileList);
   let added = 0;
   const toProcess = [];
@@ -723,7 +722,9 @@ function addImages(fileList) {
       showToast(`CARR-9000 accepts up to ${MAX_IMAGES} images. Extras ignored.`);
       break;
     }
-    if (!ALLOWED_TYPES.includes(file.type) && !file.name.match(/\.(heic|heif)$/i)) {
+    // Camera captures on Android often have empty or non-standard MIME types — treat them as jpeg
+    const isKnownType = ALLOWED_TYPES.includes(file.type) || file.name.match(/\.(jpe?g|png|webp|heic|heif)$/i);
+    if (!isKnownType && !fromCamera) {
       showToast('CARR-9000 only accepts JPEG, PNG, WEBP, or HEIC images.');
       continue;
     }
@@ -806,6 +807,8 @@ function compressImage(dataUrl, callback) {
 
 // ─── SUBMIT ──────────────────────────────────────────────────
 async function submitImage() {
+  if (!pendingImages.length) return;
+
   const minDuration = 4500;
   const startTime = Date.now();
 
