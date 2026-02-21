@@ -208,6 +208,7 @@ async function storeResult(result, images, beastMode) {
     id,
     score: result.total_score,
     car_name: result.car_name,
+    pull_quote: result.pull_quote || '',
     badge: badgeLabel(result.total_score),
     beast: beastMode,
     timestamp: new Date().toISOString(),

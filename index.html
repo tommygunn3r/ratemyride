@@ -550,13 +550,208 @@
       #header img { width: 260px; height: 88px; }
       #main { padding: 12px 16px 32px; }
       #drop-zone { padding: 44px 24px; }
+      #lb-btn { padding: 8px 12px; font-size: 10px; }
+      #lb-btn .lb-btn-text { display: none; }
+    }
+
+    /* ─── LEADERBOARD BUTTON ─────────────────────────── */
+    #lb-btn {
+      position: absolute;
+      right: 24px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      background: rgba(245, 166, 35, 0.08);
+      border: 1px solid rgba(245, 166, 35, 0.25);
+      color: var(--accent);
+      font-family: 'Roboto Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    #lb-btn:hover {
+      background: rgba(245, 166, 35, 0.15);
+      border-color: rgba(245, 166, 35, 0.5);
+    }
+
+    /* ─── LEADERBOARD OVERLAY ────────────────────────── */
+    #lb-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9000;
+      background: #020202;
+      display: none;
+      flex-direction: column;
+    }
+    #lb-overlay.active { display: flex; }
+
+    #lb-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background: rgba(0,0,0,0.9);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      flex-shrink: 0;
+      gap: 12px;
+    }
+
+    #lb-section-label {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      flex: 1;
+      text-align: center;
+    }
+
+    #lb-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 22px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 4px 8px;
+      transition: color 0.2s;
+    }
+    #lb-close:hover { color: var(--text); }
+
+    #lb-counter {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+      min-width: 48px;
+      text-align: right;
+    }
+
+    #lb-feed {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px;
+      position: relative;
+    }
+
+    #lb-frame-wrap {
+      width: 100%;
+      max-width: 900px;
+      overflow: hidden;
+    }
+
+    #lb-frame {
+      width: 900px;
+      transform-origin: top left;
+      border: none;
+      display: block;
+      border-radius: 4px;
+    }
+
+    #lb-bottombar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: rgba(0,0,0,0.9);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      flex-shrink: 0;
+      gap: 12px;
+    }
+
+    .lb-nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .lb-nav-btn:hover:not(:disabled) {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.25);
+    }
+    .lb-nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    #lb-nav-info {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 0.04em;
+      text-align: center;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #lb-loading {
+      display: none;
+      position: absolute;
+      inset: 0;
+      align-items: center;
+      justify-content: center;
+      background: rgba(2,2,2,0.85);
+      z-index: 10;
+    }
+    #lb-loading.active { display: flex; }
+
+    .lb-spinner {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 12px;
+      color: var(--accent);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      animation: lbPulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes lbPulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+
+    #lb-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      color: var(--text-dim);
+      font-family: 'Roboto Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 0.06em;
+      text-align: center;
+      padding: 80px 24px;
     }
   </style>
 </head>
 <body>
 <div id="app">
-  <header id="header">
+  <header id="header" style="position:relative">
     <img src="assets/logo.png" alt="Roasted Rides" />
+    <button id="lb-btn" onclick="openLeaderboard()" title="View Leaderboard">
+      🏆 <span class="lb-btn-text">Records</span>
+    </button>
   </header>
 
   <main id="main">
@@ -634,6 +829,31 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- Leaderboard overlay -->
+<div id="lb-overlay">
+  <div id="lb-topbar">
+    <button id="lb-close" onclick="closeLeaderboard()" title="Close">✕</button>
+    <div id="lb-section-label">LEADERBOARD</div>
+    <div id="lb-counter"></div>
+  </div>
+  <div id="lb-feed">
+    <div id="lb-loading"><div class="lb-spinner">Loading Records...</div></div>
+    <div id="lb-empty" style="display:none">
+      <div style="font-size:48px">🏁</div>
+      <div>No records yet.</div>
+      <div style="font-size:11px;opacity:0.5">Rate some rides to populate the leaderboard.</div>
+    </div>
+    <div id="lb-frame-wrap">
+      <iframe id="lb-frame" scrolling="no" title="Leaderboard Entry"></iframe>
+    </div>
+  </div>
+  <div id="lb-bottombar">
+    <button class="lb-nav-btn" id="lb-prev" onclick="navigateLb(-1)">← Prev</button>
+    <div id="lb-nav-info">—</div>
+    <button class="lb-nav-btn" id="lb-next" onclick="navigateLb(1)">Next →</button>
+  </div>
+</div>
 
 <script>
 // ─── CONFIG ──────────────────────────────────────────────────
@@ -1692,6 +1912,218 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   document.getElementById('drop-title').textContent = 'DROP YOUR CAR HERE';
   document.getElementById('drop-sub').innerHTML = 'CARR-9000 will render its verdict.<br />JPEG · PNG · WEBP · HEIC · Max 10MB';
 });
+
+// ─── LEADERBOARD ──────────────────────────────────────────────
+const LB_API = 'https://ratemyride-pi.vercel.app/api/leaderboard';
+
+let lbEntries = [];
+let lbCurrentIdx = 0;
+let lbCache = {};      // id → full result data
+let lbIsLoading = false;
+let lbOpen = false;
+
+// Deterministic layout + issue number from entry id
+function idToLayoutIdx(id) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h % 6;
+}
+
+function idToIssueNum(id) {
+  let h = 5381;
+  for (let i = 0; i < id.length; i++) h = (h * 33 ^ id.charCodeAt(i)) >>> 0;
+  return (h % 900) + 100;
+}
+
+async function openLeaderboard() {
+  lbOpen = true;
+  document.getElementById('lb-overlay').classList.add('active');
+  document.getElementById('lb-empty').style.display = 'none';
+  document.getElementById('lb-frame-wrap').style.display = 'none';
+  setLbLoading(true);
+  updateLbUI();
+
+  try {
+    const res = await fetch(LB_API);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const manifest = await res.json();
+
+    // Build flat entry list across all 4 sections
+    lbEntries = [];
+    const sections = [
+      { data: manifest.regular?.top10  || [], label: 'HALL OF FAME' },
+      { data: manifest.regular?.bottom10 || [], label: 'HALL OF SHAME' },
+      { data: manifest.beast?.top10   || [], label: 'BEAST HALL OF FAME' },
+      { data: manifest.beast?.bottom10 || [], label: 'BEAST HALL OF SHAME' },
+    ];
+    for (const sec of sections) {
+      for (const entry of sec.data) {
+        lbEntries.push({ ...entry, sectionLabel: sec.label });
+      }
+    }
+
+    setLbLoading(false);
+
+    if (lbEntries.length === 0) {
+      document.getElementById('lb-empty').style.display = 'flex';
+      updateLbUI();
+      return;
+    }
+
+    lbCurrentIdx = 0;
+    document.getElementById('lb-frame-wrap').style.display = '';
+    await loadLbEntry(0);
+
+  } catch (err) {
+    console.error('Leaderboard load error:', err);
+    setLbLoading(false);
+    showToast('Could not load leaderboard.');
+    closeLeaderboard();
+  }
+}
+
+function closeLeaderboard() {
+  lbOpen = false;
+  document.getElementById('lb-overlay').classList.remove('active');
+}
+
+function setLbLoading(on) {
+  lbIsLoading = on;
+  document.getElementById('lb-loading').classList.toggle('active', on);
+  document.getElementById('lb-prev').disabled = on || lbCurrentIdx <= 0;
+  document.getElementById('lb-next').disabled = on || lbCurrentIdx >= lbEntries.length - 1;
+}
+
+async function loadLbEntry(idx) {
+  if (idx < 0 || idx >= lbEntries.length) return;
+  const entry = lbEntries[idx];
+
+  // Return from cache if available
+  if (lbCache[entry.id]) {
+    renderLbEntry(lbCache[entry.id], entry);
+    return;
+  }
+
+  setLbLoading(true);
+  try {
+    const res = await fetch(entry.result_url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const fullData = await res.json();
+    lbCache[entry.id] = fullData;
+    renderLbEntry(fullData, entry);
+  } catch (err) {
+    console.error('Entry load error:', err);
+    showToast('Could not load this entry.');
+    setLbLoading(false);
+  }
+}
+
+function renderLbEntry(data, entry) {
+  const layouts = [layoutA, layoutB, layoutC, layoutD, layoutE, layoutF];
+  const layIdx = idToLayoutIdx(entry.id);
+  const issueNum = idToIssueNum(entry.id);
+  const badge = totalBadge(data.total_score);
+  const isBeast = !!entry.beast;
+  const badgeColor = isBeast ? '#e53935' : badge.color;
+  const accentColor = isBeast ? '#e53935' : '#f5a623';
+  const logoSrc = document.querySelector('#header img').src;
+  const masthead = isBeast ? 'CARR-9000 BEAST QUARTERLY' : 'CARR-9000 AUTOMOTIVE QUARTERLY';
+
+  const ctx = { badge, badgeColor, accentColor, logoSrc, issueNum, masthead, darkMode: false };
+
+  // Use public Blob URLs as the images array
+  const images = entry.image_urls || [];
+  const html = layouts[layIdx](data, images, ctx);
+
+  const frame = document.getElementById('lb-frame');
+  frame.style.height = '1500px';
+  frame.onload = () => {
+    const measure = () => {
+      try {
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        const h = doc.body.scrollHeight;
+        if (h > 200) { frame.style.height = h + 'px'; scaleLbFrame(); }
+      } catch { /* fallback */ }
+      setLbLoading(false);
+    };
+    setTimeout(measure, 500);
+    setTimeout(measure, 1500);
+  };
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const blobUrl = URL.createObjectURL(blob);
+  if (frame.src && frame.src.startsWith('blob:')) URL.revokeObjectURL(frame.src);
+  frame.src = blobUrl;
+
+  // Scroll feed to top so user reads from the beginning
+  document.getElementById('lb-feed').scrollTop = 0;
+  updateLbUI();
+}
+
+function navigateLb(direction) {
+  if (lbIsLoading) return;
+  const newIdx = lbCurrentIdx + direction;
+  if (newIdx < 0 || newIdx >= lbEntries.length) return;
+  lbCurrentIdx = newIdx;
+  loadLbEntry(lbCurrentIdx);
+}
+
+function updateLbUI() {
+  const total = lbEntries.length;
+  const idx = lbCurrentIdx;
+  const entry = lbEntries[idx];
+
+  document.getElementById('lb-section-label').textContent =
+    entry ? entry.sectionLabel : 'LEADERBOARD';
+  document.getElementById('lb-counter').textContent =
+    total > 0 ? `${idx + 1} / ${total}` : '';
+  document.getElementById('lb-nav-info').textContent =
+    entry ? (entry.car_name || '—') : '—';
+  document.getElementById('lb-prev').disabled = idx <= 0 || lbIsLoading;
+  document.getElementById('lb-next').disabled = idx >= total - 1 || lbIsLoading;
+}
+
+function scaleLbFrame() {
+  const frame = document.getElementById('lb-frame');
+  const wrap = document.getElementById('lb-frame-wrap');
+  if (!wrap.clientWidth) return;
+  const scale = Math.min(1, wrap.clientWidth / 900);
+  frame.style.transform = scale < 1 ? `scale(${scale})` : '';
+  const naturalHeight = parseInt(frame.style.height) || 1500;
+  wrap.style.height = Math.ceil(naturalHeight * scale) + 'px';
+}
+
+// Keyboard navigation for leaderboard
+document.addEventListener('keydown', e => {
+  if (!lbOpen) return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); navigateLb(1); }
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   { e.preventDefault(); navigateLb(-1); }
+  if (e.key === 'Escape') closeLeaderboard();
+});
+
+// Swipe on top/bottom bars (not on iframe so swipes aren't captured by content)
+(function() {
+  let tx = 0, ty = 0;
+  const THRESHOLD = 50;
+  function onStart(e) { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }
+  function onEnd(e) {
+    const dx = e.changedTouches[0].clientX - tx;
+    const dy = e.changedTouches[0].clientY - ty;
+    if (Math.abs(dx) < THRESHOLD && Math.abs(dy) < THRESHOLD) return;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      navigateLb(dx < 0 ? 1 : -1);
+    } else {
+      navigateLb(dy < 0 ? 1 : -1);
+    }
+  }
+  ['lb-topbar', 'lb-bottombar'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchend', onEnd, { passive: true });
+  });
+})();
+
+window.addEventListener('resize', () => { if (lbOpen) scaleLbFrame(); });
 </script>
 </body>
 </html>

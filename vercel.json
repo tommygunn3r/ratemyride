@@ -2,6 +2,9 @@
   "functions": {
     "api/rate.js": {
       "maxDuration": 30
+    },
+    "api/leaderboard.js": {
+      "maxDuration": 10
     }
   },
   "headers": [
