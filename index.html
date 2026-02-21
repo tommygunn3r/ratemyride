@@ -373,6 +373,17 @@
     }
     #btn-reset:hover { color: var(--text); border-color: rgba(255,255,255,0.25); }
 
+    #btn-submit {
+      background: rgba(245, 166, 35, 0.08);
+      color: var(--accent);
+      border: 1px solid rgba(245, 166, 35, 0.3);
+    }
+    #btn-submit:hover:not(:disabled) {
+      background: rgba(245, 166, 35, 0.16);
+      border-color: rgba(245, 166, 35, 0.6);
+    }
+    #btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
     #layout-row {
       flex-basis: 100%;
       display: flex;
@@ -787,6 +798,7 @@
     <div id="action-bar">
       <button class="action-btn" id="btn-download">Download</button>
       <button class="action-btn" id="btn-share">Share</button>
+      <button class="action-btn" id="btn-submit" style="display:none">Submit to Records</button>
       <button class="action-btn" id="btn-dark">Dark</button>
       <button class="action-btn" id="btn-reset">Rate Another</button>
       <div id="layout-row">
@@ -855,7 +867,8 @@
 
 <script>
 // ─── CONFIG ──────────────────────────────────────────────────
-const API_URL = 'https://ratemyride-pi.vercel.app/api/rate';
+const API_URL    = 'https://ratemyride-pi.vercel.app/api/rate';
+const SUBMIT_API = 'https://ratemyride-pi.vercel.app/api/submit';
 const MAX_SIZE_MB = 10;
 
 // ─── STATE ───────────────────────────────────────────────────
@@ -869,6 +882,7 @@ let currentLayoutIdx = -1;  // -1 = pick random on next render
 let currentIssueNum = 100;  // stable per submission
 let isRejection = false;
 let currentRejectionData = null;
+let currentSubmitImages = []; // [{data, mimeType}] saved at submit time for leaderboard upload
 
 // ─── SCAN MESSAGES ───────────────────────────────────────────
 const scanMessages = [
@@ -1125,9 +1139,11 @@ async function submitImage() {
 
     currentData = data;
     currentImages = pendingImages.map(img => img.dataUrl);
+    currentSubmitImages = pendingImages.map(img => ({ data: img.base64, mimeType: img.mimeType }));
     currentCarName = (data.car_name || 'the-vehicle').toLowerCase().replace(/[^a-z0-9]+/g, '-');
     currentLayoutIdx = -1;  // pick fresh random layout for new submission
     renderResult(data, currentImages);
+    checkLeaderboardQualification(data.total_score, isBeastMode);
 
   } catch (err) {
     stopScan();
@@ -1894,6 +1910,13 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   currentRejectionData = null;
   document.getElementById('layout-row').style.display = '';
 
+  // Reset submit button
+  currentSubmitImages = [];
+  const submitBtn = document.getElementById('btn-submit');
+  submitBtn.style.display = 'none';
+  submitBtn.textContent = 'Submit to Records';
+  submitBtn.disabled = false;
+
   // Reset layout selector
   currentLayoutIdx = -1;
   document.getElementById('layout-select').value = '0';
@@ -1909,6 +1932,67 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   document.body.classList.remove('beast-mode');
   document.getElementById('drop-title').textContent = 'DROP YOUR CAR HERE';
   document.getElementById('drop-sub').innerHTML = 'CARR-9000 will render its verdict.<br />JPEG · PNG · WEBP · HEIC · Max 10MB';
+});
+
+// ─── LEADERBOARD QUALIFICATION + SUBMIT ───────────────────────
+function doesQualify(score, board) {
+  const top10    = board.top10    || [];
+  const bottom10 = board.bottom10 || [];
+  // top10 sorted ASC: top10[last] is the highest (worst) score in the list
+  if (top10.length < 10    || score < top10[top10.length - 1].score)    return true;
+  // bottom10 sorted DESC: bottom10[last] is the lowest (best) score in the list
+  if (bottom10.length < 10 || score > bottom10[bottom10.length - 1].score) return true;
+  return false;
+}
+
+async function checkLeaderboardQualification(score, isBeast) {
+  const btn = document.getElementById('btn-submit');
+  btn.style.display = 'none';
+  btn.disabled = false;
+  btn.textContent = 'Submit to Records';
+
+  try {
+    const res = await fetch(LB_API);
+    if (!res.ok) return; // fail closed — don't show button if check fails
+    const manifest = await res.json();
+    const board = isBeast ? manifest.beast : manifest.regular;
+    if (doesQualify(score, board)) btn.style.display = '';
+  } catch {
+    // fail closed — network issue, don't show button
+  }
+}
+
+// ─── SUBMIT TO LEADERBOARD ────────────────────────────────────
+document.getElementById('btn-submit').addEventListener('click', async () => {
+  if (!currentData || !currentSubmitImages.length) return;
+  const btn = document.getElementById('btn-submit');
+  btn.textContent = 'Submitting...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(SUBMIT_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        result: currentData,
+        images: currentSubmitImages,
+        beastMode: isBeastMode
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+
+    btn.textContent = 'On the Board';
+    // Keep disabled — one submission per result
+  } catch (err) {
+    console.error('Submit error:', err);
+    showToast(err.message || 'Submission failed. Try again.');
+    btn.textContent = 'Submit to Records';
+    btn.disabled = false;
+  }
 });
 
 // ─── LEADERBOARD ──────────────────────────────────────────────
