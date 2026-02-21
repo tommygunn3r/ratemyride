@@ -373,6 +373,45 @@
     }
     #btn-reset:hover { color: var(--text); border-color: rgba(255,255,255,0.25); }
 
+    #layout-row {
+      flex-basis: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding-top: 4px;
+    }
+
+    #layout-row label {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      white-space: nowrap;
+    }
+
+    #layout-select {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 32px 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 11px center;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+    #layout-select:hover { border-color: rgba(255,255,255,0.3); background-color: rgba(255,255,255,0.1); }
+    #layout-select option { background: #1a1a1a; color: #fff; }
+
     /* ─── IFRAME WRAPPER ─────────────────────────────── */
     #result-frame-wrap {
       display: none;
@@ -556,6 +595,17 @@
       <button class="action-btn" id="btn-share">🔗 Share</button>
       <button class="action-btn" id="btn-dark">🌙 Dark</button>
       <button class="action-btn" id="btn-reset">🔄 Rate Another</button>
+      <div id="layout-row">
+        <label for="layout-select">Layout</label>
+        <select id="layout-select">
+          <option value="0">Classic Editorial</option>
+          <option value="1">Full Bleed</option>
+          <option value="2">Centerfold</option>
+          <option value="3">Tabloid</option>
+          <option value="4">Workshop Report</option>
+          <option value="5">80s Cover</option>
+        </select>
+      </div>
     </div>
 
     <!-- Results iframe -->
@@ -597,6 +647,8 @@ let isBeastMode = false;
 let pendingImages = [];      // [{base64, mimeType, dataUrl}] pre-submit
 let currentImages = [];      // [dataUrl, ...] post-submit, for re-render
 let isArticleDarkMode = false;
+let currentLayoutIdx = -1;  // -1 = pick random on next render
+let currentIssueNum = 100;  // stable per submission
 
 // ─── SCAN MESSAGES ───────────────────────────────────────────
 const scanMessages = [
@@ -852,6 +904,7 @@ async function submitImage() {
     currentData = data;
     currentImages = pendingImages.map(img => img.dataUrl);
     currentCarName = (data.car_name || 'the-vehicle').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    currentLayoutIdx = -1;  // pick fresh random layout for new submission
     renderResult(data, currentImages);
 
   } catch (err) {
@@ -898,6 +951,7 @@ function gradeColor(score) {
 // ─── SHARED IFRAME FONTS ──────────────────────────────────────
 const FONTS_STANDARD = `<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>`;
 const FONTS_WITH_CAVEAT = `<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Inter:wght@300;400;500;600;700&family=Caveat:wght@400;700&display=swap" rel="stylesheet"/>`;
+const FONTS_80S = `<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>`;
 
 // ─── EXTRA PHOTOS STRIP HELPER ───────────────────────────────
 function extraPhotos(images, fromIdx, borderColor) {
@@ -1129,19 +1183,133 @@ function layoutE(data, images, ctx) {
 </body></html>`;
 }
 
+// ─── LAYOUT F — 1980s Magazine Cover ─────────────────────────
+function layoutF(data, images, ctx) {
+  const { badge, badgeColor, logoSrc, issueNum, masthead, darkMode: dm } = ctx;
+  const red = '#c8102e', gold = '#ffd600';
+  const bg = dm?'#111':'#f4efe3', text = dm?'#ddd':'#111', dimT = dm?'#999':'#555';
+  const sideBg = dm?'#1a1a1a':'#fffdf5', borderC = dm?'rgba(255,255,255,.12)':'#c8b89a';
+  const scoreC = dm?'rgba(255,255,255,.35)':'#888';
+
+  const leftCats = data.categories.slice(0, 4);
+  const rightCats = data.categories.slice(4);
+
+  const coverLine = (cat, side) => {
+    const c = categoryColor(cat.score);
+    const shortReason = (cat.reasoning.split('.')[0] || '').slice(0, 52);
+    const borderSide = side === 'right' ? 'border-right:3px solid '+gold : 'border-left:3px solid '+gold;
+    const tAlign = side === 'right' ? 'text-align:right' : '';
+    return `<div style="background:rgba(0,0,0,.78);margin-bottom:7px;${borderSide};padding:6px 9px;${tAlign}"><div style="font:600 8px/1 Oswald,sans-serif;color:${gold};text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px">${cat.name}</div><div style="font:400 16px/1 Anton,sans-serif;color:${c}">${cat.score}<span style="font:300 8px/1 Oswald,sans-serif;color:rgba(255,255,255,.45)"> pts</span></div><div style="font:300 8px/1.35 Oswald,sans-serif;color:rgba(255,255,255,.62);margin-top:3px">${shortReason}${cat.reasoning.split('.')[0].length>52?'…':''}</div></div>`;
+  };
+
+  const storyParas = (data.story||'').split(/\n\n+/).filter(p=>p.trim());
+  const half = Math.ceil(storyParas.length/2);
+  const col1 = storyParas.slice(0,half).map(p=>`<p style="font:300 13px/1.72 Oswald,sans-serif;color:${text};margin-bottom:12px;text-align:justify">${p.trim()}</p>`).join('');
+  const col2 = storyParas.slice(half).map(p=>`<p style="font:300 13px/1.72 Oswald,sans-serif;color:${text};margin-bottom:12px;text-align:justify">${p.trim()}</p>`).join('');
+
+  const specRows = data.categories.map(cat => {
+    const c = categoryColor(cat.score);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid ${borderC}"><div style="flex:1"><div style="font:600 8px/1 Oswald,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:${dm?'rgba(255,255,255,.5)':'#666'}">${cat.name}</div><div style="font:300 9px/1.3 Oswald,sans-serif;color:${dimT};margin-top:2px">${(cat.reasoning.split('.')[0]||'')}.</div></div><div style="flex-shrink:0;text-align:right"><div style="font:600 15px/1 Oswald,sans-serif;color:${c}">${cat.score}</div><div style="font:300 7px/1 Oswald,sans-serif;color:${scoreC}">/1250</div><div style="height:2px;width:36px;background:${dm?'rgba(255,255,255,.08)':'#e0e0e0'};border-radius:1px;margin-top:3px"><div style="height:100%;width:${pct(cat.score,1250)}%;background:${c};border-radius:1px"></div></div></div></div>`;
+  }).join('');
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_80S}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:${bg};color:${text};font-family:Oswald,sans-serif;width:900px;min-width:900px}</style></head><body>
+<div style="background:${red};padding:10px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:5px solid ${gold}">
+  <div style="display:flex;align-items:center;gap:14px">
+    <img src="${logoSrc}" style="height:26px;filter:brightness(0) invert(1)"/>
+    <div style="width:1px;height:28px;background:rgba(255,255,255,.25)"></div>
+    <div style="font:400 22px/1 Anton,sans-serif;color:#fff;text-transform:uppercase;letter-spacing:.04em">${masthead}</div>
+  </div>
+  <div style="text-align:right">
+    <div style="font:600 10px/1.5 Oswald,sans-serif;color:${gold};text-transform:uppercase;letter-spacing:.14em">Vol. 1 &nbsp;·&nbsp; Issue ${issueNum}</div>
+    <div style="font:300 9px/1.3 Oswald,sans-serif;color:rgba(255,255,255,.5);letter-spacing:.06em">CARR-9000 TEST RESULTS &nbsp;·&nbsp; $3.95</div>
+  </div>
+</div>
+<div style="background:${gold};padding:5px 20px;display:flex;justify-content:space-between;align-items:center">
+  <div style="font:600 9px/1 Oswald,sans-serif;color:#000;text-transform:uppercase;letter-spacing:.12em">★ EXCLUSIVE CARR-9000 ASSESSMENT ★</div>
+  <div style="font:600 9px/1 Oswald,sans-serif;color:#000;text-transform:uppercase;letter-spacing:.12em">8-CATEGORY BREAKDOWN &nbsp;·&nbsp; FULL VERDICT ★</div>
+</div>
+<div style="position:relative;height:520px;overflow:hidden;background:#111">
+  <img src="${images[0]}" style="width:100%;height:100%;object-fit:cover;display:block"/>
+  <div style="position:absolute;inset:0;background:linear-gradient(to right,rgba(0,0,0,.65) 0%,rgba(0,0,0,0) 24%,rgba(0,0,0,0) 76%,rgba(0,0,0,.65) 100%),linear-gradient(to top,rgba(0,0,0,.92) 0%,transparent 45%)"></div>
+  <div style="position:absolute;top:18px;left:50%;transform:translateX(-50%);width:90px;height:90px;border-radius:50%;background:${red};border:3px solid ${gold};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:2">
+    <div style="font:300 7px/1 Oswald,sans-serif;color:${gold};text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px">Score</div>
+    <div style="font:400 17px/1 Anton,sans-serif;color:#fff">${data.total_score.toLocaleString()}</div>
+    <div style="font:300 7px/1 Oswald,sans-serif;color:rgba(255,255,255,.55);margin-top:2px">/ 10,000</div>
+    <div style="font:600 6px/1.3 Oswald,sans-serif;color:${badgeColor};text-transform:uppercase;letter-spacing:.04em;margin-top:4px;padding:0 4px">${badge.label}</div>
+  </div>
+  <div style="position:absolute;top:16px;left:0;width:205px;padding:0 12px">
+    ${leftCats.map(c=>coverLine(c,'left')).join('')}
+  </div>
+  <div style="position:absolute;top:16px;right:0;width:205px;padding:0 12px">
+    ${rightCats.map(c=>coverLine(c,'right')).join('')}
+  </div>
+  <div style="position:absolute;bottom:0;left:0;right:0;padding:18px 22px 22px">
+    <div style="display:inline-block;background:${red};padding:3px 10px;margin-bottom:10px">
+      <div style="font:600 9px/1 Oswald,sans-serif;color:#fff;text-transform:uppercase;letter-spacing:.18em">CARR-9000 Road Test</div>
+    </div>
+    <h1 style="font:400 54px/0.93 Anton,sans-serif;color:#fff;text-transform:uppercase;text-shadow:0 3px 14px rgba(0,0,0,.65);letter-spacing:.01em">${data.car_name}</h1>
+    <p style="font:italic 300 16px/1.45 Oswald,sans-serif;color:rgba(255,255,255,.82);margin-top:11px;max-width:510px">&ldquo;${data.pull_quote}&rdquo;</p>
+  </div>
+</div>
+<div style="background:#111;padding:10px 22px;display:flex;align-items:center;justify-content:space-between;border-top:4px solid ${red}">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="font:600 9px/1 Oswald,sans-serif;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.1em">Official Verdict</div>
+    <div style="font:400 20px/1 Anton,sans-serif;color:${badgeColor};text-transform:uppercase;letter-spacing:.02em">${badge.label}</div>
+  </div>
+  <div style="font:400 28px/1 Anton,sans-serif;color:#fff">${data.total_score.toLocaleString()}<span style="font:300 11px/1 Oswald,sans-serif;color:rgba(255,255,255,.4)"> / 10,000</span></div>
+</div>
+<div style="display:flex;border-top:1px solid ${borderC}">
+  <div style="flex:1;padding:22px 18px 24px 22px;border-right:1px solid ${borderC}">
+    <div style="font:600 9px/1 Oswald,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:${red};border-bottom:2px solid ${red};padding-bottom:8px;margin-bottom:14px">Carr-9000 Verdict</div>
+    <div style="display:flex;gap:18px"><div style="flex:1">${col1}</div><div style="flex:1;border-left:1px solid ${borderC};padding-left:18px">${col2}</div></div>
+  </div>
+  <div style="flex:0 0 270px;padding:22px 20px 24px 18px;background:${sideBg}">
+    <div style="font:600 9px/1 Oswald,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:${red};border-bottom:2px solid ${red};padding-bottom:8px;margin-bottom:12px">Hot Specs</div>
+    ${specRows}
+    <div style="margin-top:14px;padding-top:12px;border-top:2px solid ${red};display:flex;justify-content:space-between;align-items:center">
+      <div style="font:600 9px/1 Oswald,sans-serif;text-transform:uppercase;letter-spacing:.1em;color:${dimT}">Final Score</div>
+      <div style="text-align:right"><div style="font:400 26px/1 Anton,sans-serif;color:${badgeColor}">${data.total_score.toLocaleString()}<span style="font:300 10px/1 Oswald,sans-serif;color:${scoreC}"> / 10,000</span></div><div style="font:600 8px/1 Oswald,sans-serif;text-transform:uppercase;letter-spacing:.1em;color:${badgeColor};margin-top:3px">${badge.label}</div></div>
+    </div>
+  </div>
+</div>
+${extraPhotos(images, 1, borderC)}
+<div style="background:#111;padding:10px 22px;display:flex;justify-content:space-between;align-items:center;border-top:3px solid ${red}"><div style="font:300 9px/1.5 Oswald,sans-serif;color:rgba(255,255,255,.35);letter-spacing:.04em;text-transform:uppercase">Results generated by CARR-9000. For entertainment purposes only. Accuracy not guaranteed. Feelings not considered.</div><div style="font:400 11px/1 Anton,sans-serif;color:rgba(255,255,255,.25);letter-spacing:.1em">CARR-9000</div></div>
+</body></html>`;
+}
+
 // ─── RENDER MAGAZINE ─────────────────────────────────────────
 function renderResult(data, images) {
   const badge = totalBadge(data.total_score);
   const badgeColor = isBeastMode ? '#e53935' : badge.color;
   const accentColor = isBeastMode ? '#e53935' : '#f5a623';
   const logoSrc = document.querySelector('#header img').src;
-  const issueNum = Math.floor(Math.random() * 900) + 100;
 
   const masthead = isBeastMode ? 'CARR-9000 BEAST QUARTERLY' : 'CARR-9000 AUTOMOTIVE QUARTERLY';
-  const ctx = { badge, badgeColor, accentColor, logoSrc, issueNum, masthead, darkMode: isArticleDarkMode };
 
-  const layouts = [layoutA, layoutB, layoutC, layoutD, layoutE];
-  const html = layouts[Math.floor(Math.random() * layouts.length)](data, images, ctx);
+  const layouts = [layoutA, layoutB, layoutC, layoutD, layoutE, layoutF];
+
+  // Pick random layout on first render; keep stored layout on re-renders
+  if (currentLayoutIdx < 0) {
+    currentLayoutIdx = Math.floor(Math.random() * layouts.length);
+    currentIssueNum = Math.floor(Math.random() * 900) + 100;
+  }
+
+  // 80s Cover (index 5) has no dark mode — enforce
+  const effectiveDarkMode = currentLayoutIdx === 5 ? false : isArticleDarkMode;
+  const ctx = { badge, badgeColor, accentColor, logoSrc, issueNum: currentIssueNum, masthead, darkMode: effectiveDarkMode };
+
+  const html = layouts[currentLayoutIdx](data, images, ctx);
+
+  // Sync selector UI
+  document.getElementById('layout-select').value = currentLayoutIdx;
+
+  // Show/hide dark mode button — not applicable for 80s Cover
+  const darkBtn = document.getElementById('btn-dark');
+  darkBtn.style.display = currentLayoutIdx === 5 ? 'none' : '';
+  if (currentLayoutIdx === 5 && isArticleDarkMode) {
+    isArticleDarkMode = false;
+    darkBtn.textContent = '🌙 Dark';
+  }
 
   const blob = new Blob([html], { type: 'text/html' });
   const blobUrl = URL.createObjectURL(blob);
@@ -1283,6 +1451,12 @@ document.getElementById('btn-share').addEventListener('click', async () => {
   }
 });
 
+// ─── LAYOUT SELECTOR ─────────────────────────────────────────
+document.getElementById('layout-select').addEventListener('change', function() {
+  currentLayoutIdx = parseInt(this.value);
+  if (currentData && currentImages.length) renderResult(currentData, currentImages);
+});
+
 // ─── DARK MODE TOGGLE ────────────────────────────────────────
 document.getElementById('btn-dark').addEventListener('click', () => {
   isArticleDarkMode = !isArticleDarkMode;
@@ -1318,9 +1492,14 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   document.getElementById('camera-input').value = '';
   updateThumbs();
 
+  // Reset layout selector
+  currentLayoutIdx = -1;
+  document.getElementById('layout-select').value = '0';
+
   // Reset dark mode
   isArticleDarkMode = false;
   document.getElementById('btn-dark').textContent = '🌙 Dark';
+  document.getElementById('btn-dark').style.display = '';
 
   // Reset beast mode
   document.getElementById('beast-checkbox').checked = false;
