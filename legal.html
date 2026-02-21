@@ -187,13 +187,13 @@
   </header>
 
   <main id="content">
-    <div class="effective-date">Effective: January 1, 2025</div>
+    <div class="effective-date">Effective: February 2026</div>
     <div class="page-label">Legal</div>
     <h1>Terms &amp; Privacy</h1>
     <p class="intro">CARR-9000 has reviewed the following terms and found them acceptable. You are encouraged to read them. Whether you do so will not change CARR-9000's opinion of your car.</p>
 
     <div class="stamp-block">
-      <p>THE SHORT VERSION: We don't store your images. We don't track you. CARR-9000's verdicts are entertainment. Your car may or may not deserve it. We are not liable for emotional distress caused by accurate assessments.</p>
+      <p>THE SHORT VERSION: Standard ratings are processed and discarded — nothing is saved. If you choose to submit a result to the public Records leaderboard, that photo and assessment are stored and publicly visible. We don't track you. CARR-9000's verdicts are entertainment. We are not liable for emotional distress caused by accurate assessments.</p>
     </div>
 
     <div class="legal-section">
@@ -220,11 +220,20 @@
     </div>
 
     <div class="legal-section">
+      <div class="section-label">Section 3b</div>
+      <h2>Records Leaderboard &amp; Voluntary Submission</h2>
+      <p>The Records leaderboard is a public feature. By clicking <strong>Submit to Records</strong>, you voluntarily submit your car photo(s) and the associated AI-generated assessment for public display on this site. You confirm that you have the right to submit the photograph and that it does not contain content that is illegal, harmful, or in violation of any third party's rights or privacy.</p>
+      <p><strong>Submitted content is publicly visible.</strong> Anyone visiting the site may view your submission in the Records section. Do not submit a photograph containing people, identifying information, licence plates you wish to keep private, or anything you would not want displayed on a public website.</p>
+      <p>Submitted entries may be automatically deleted if they are displaced from the leaderboard by newer results. We make no guarantee of how long any entry will remain. CARR-9000 keeps records, but it does not make promises.</p>
+    </div>
+
+    <div class="legal-section">
       <div class="section-label">Section 4</div>
       <h2>Privacy Policy &amp; Data Handling</h2>
-      <p><strong>We do not store your images.</strong> When you submit a photo, it is compressed in your browser and transmitted to a serverless function, which forwards it to Google Gemini for analysis. Once the assessment is returned, the image is discarded. It is not saved, logged, indexed, sold, or used to haunt you later.</p>
-      <p><strong>We do not store your results.</strong> The magazine spread you receive exists only in your browser. Once you close or refresh the page, it is gone. CARR-9000 judges your car and immediately forgets it existed. This is, frankly, a mercy.</p>
-      <p><strong>We do not use cookies, trackers, or analytics.</strong> There are no third-party advertising scripts, session tracking, fingerprinting tools, or any other mechanism designed to follow you around the internet. The only external services loaded are Google Fonts (for typography) and the Vercel serverless function that handles the AI request.</p>
+      <p><strong>Standard ratings: no data is stored.</strong> When you submit a photo, it is compressed in your browser and transmitted to a serverless function, which forwards it to Google Gemini for analysis. Once the assessment is returned, the image is discarded. It is not saved, logged, indexed, sold, or used to haunt you later. The magazine spread exists only in your browser session.</p>
+      <p><strong>Records leaderboard: opt-in storage.</strong> If your result qualifies for the public leaderboard and you choose to click <strong>Submit to Records</strong>, the following data is uploaded to Vercel Blob cloud storage and becomes publicly accessible: your car photo(s), and the full AI-generated assessment including scores, category breakdowns, the car's fictional biography, and pull quote. No account, name, email address, IP address, or any personally identifying information is collected or stored at any point. The only data stored is what the AI produced about the vehicle in the photograph.</p>
+      <p><strong>Retention and deletion.</strong> Each leaderboard list holds a maximum of 10 entries. If a subsequent submission displaces your entry from all lists it appeared on, your stored photos and assessment are automatically and permanently deleted from our servers. If your entry remains on at least one list, it is retained for as long as it holds that position.</p>
+      <p><strong>We do not use cookies, trackers, or analytics.</strong> There are no third-party advertising scripts, session tracking, fingerprinting tools, or any other mechanism designed to follow you around the internet. The only external services loaded are Google Fonts (for typography), the Vercel serverless functions that handle AI requests and leaderboard storage, and Vercel Blob for Records storage.</p>
       <p>Google Gemini processes the image you submit according to <strong>Google's own privacy policies and terms of service</strong>. We recommend reviewing their documentation if you have concerns about how AI providers handle submitted data.</p>
     </div>
 
