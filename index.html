@@ -799,6 +799,7 @@
       <button class="action-btn" id="btn-download">Download</button>
       <button class="action-btn" id="btn-share">Share</button>
       <button class="action-btn" id="btn-submit" style="display:none">Submit to Records</button>
+      <div id="submit-note" style="display:none;flex-basis:100%;text-align:center;font-size:11px;color:rgba(255,255,255,0.28);letter-spacing:0.04em;margin-top:-4px">Photos submitted to Records are publicly visible — including any licence plates.</div>
       <button class="action-btn" id="btn-dark">Dark</button>
       <button class="action-btn" id="btn-reset">Rate Another</button>
       <div id="layout-row">
@@ -1916,6 +1917,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   submitBtn.style.display = 'none';
   submitBtn.textContent = 'Submit to Records';
   submitBtn.disabled = false;
+  document.getElementById('submit-note').style.display = 'none';
 
   // Reset layout selector
   currentLayoutIdx = -1;
@@ -1956,7 +1958,10 @@ async function checkLeaderboardQualification(score, isBeast) {
     if (!res.ok) return; // fail closed — don't show button if check fails
     const manifest = await res.json();
     const board = isBeast ? manifest.beast : manifest.regular;
-    if (doesQualify(score, board)) btn.style.display = '';
+    if (doesQualify(score, board)) {
+      btn.style.display = '';
+      document.getElementById('submit-note').style.display = '';
+    }
   } catch {
     // fail closed — network issue, don't show button
   }
