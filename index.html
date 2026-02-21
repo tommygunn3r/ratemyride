@@ -649,6 +649,8 @@ let currentImages = [];      // [dataUrl, ...] post-submit, for re-render
 let isArticleDarkMode = false;
 let currentLayoutIdx = -1;  // -1 = pick random on next render
 let currentIssueNum = 100;  // stable per submission
+let isRejection = false;
+let currentRejectionData = null;
 
 // ─── SCAN MESSAGES ───────────────────────────────────────────
 const scanMessages = [
@@ -897,7 +899,9 @@ async function submitImage() {
     }
 
     if (data.valid === false) {
-      showToast(data.message || 'CARR-9000 has rejected this submission.');
+      currentImages = pendingImages.map(img => img.dataUrl);
+      currentCarName = 'rejection';
+      showRejection(data, currentImages);
       return;
     }
 
@@ -953,6 +957,7 @@ const FONTS_STANDARD = `<link rel="preconnect" href="https://fonts.googleapis.co
 const FONTS_WITH_CAVEAT = `<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Inter:wght@300;400;500;600;700&family=Caveat:wght@400;700&display=swap" rel="stylesheet"/>`;
 const FONTS_80S = `<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>`;
 const FONTS_COVER = `<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;600;700&family=Oswald:wght@200;300;400;500;600;700&display=swap" rel="stylesheet"/>`;
+const FONTS_REJECTION = `<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Playfair+Display:ital,wght@0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>`;
 
 // ─── EXTRA PHOTOS STRIP HELPER ───────────────────────────────
 function extraPhotos(images, fromIdx, borderColor) {
@@ -1301,8 +1306,152 @@ ${flairSentence ? `
 </body></html>`;
 }
 
+// ─── REJECTION HTML ───────────────────────────────────────────
+function rejectionHtml(data, images, logoSrc) {
+  const reason = data.reason || 'unknown';
+  const message = data.message || 'CARR-9000 has rejected this submission.';
+
+  const cfgMap = {
+    'ai_generated': {
+      stamp: 'FRAUDULENT',
+      color: '#e53935',
+      sub: 'CARR-9000 judges real automobiles only. Please photograph an actual vehicle and resubmit.'
+    },
+    'inappropriate': {
+      stamp: 'FLAGGED',
+      color: '#e53935',
+      sub: 'This submission has been referred to CARR-9000\'s legal team. Good day.'
+    },
+    'not_a_car': {
+      stamp: 'INVALID SUBMISSION',
+      color: '#e53935',
+      sub: 'Rate My Ride requires a vehicle. Please locate one and resubmit.'
+    },
+    'stock': {
+      stamp: 'REJECTED',
+      color: '#f5a623',
+      sub: 'Rate My Ride is for custom vehicles. Go do something to it and come back.'
+    },
+    'unclear': {
+      stamp: 'INSUFFICIENT DATA',
+      color: '#c9a800',
+      sub: 'CARR-9000 requires a visible vehicle. Please resubmit with a clearer photograph.'
+    }
+  };
+  const cfg = cfgMap[reason] || { stamp: 'REJECTED', color: '#e53935', sub: 'This submission has been declined.' };
+
+  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
+  const refId = Math.random().toString(36).slice(2, 8).toUpperCase();
+
+  const imageSection = images && images.length > 0
+    ? `<div style="margin:0 auto 28px;max-width:400px;overflow:hidden;border:1px solid rgba(0,0,0,0.08)">
+        <img src="${images[0]}" style="width:100%;max-height:230px;object-fit:cover;display:block;filter:grayscale(1);opacity:0.28"/>
+      </div>`
+    : '';
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_REJECTION}<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#fafaf8;color:#111;font-family:Inter,sans-serif;width:900px;min-width:900px}
+</style></head><body>
+
+<div style="background:#111;padding:16px 28px;display:flex;align-items:center;justify-content:space-between">
+  <img src="${logoSrc}" style="height:38px;display:block;"/>
+  <div style="text-align:right">
+    <div style="font:600 9px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,0.5)">${today}</div>
+    <div style="font:400 9px/1.4 Inter,sans-serif;color:rgba(255,255,255,0.3);margin-top:3px;letter-spacing:.06em">CARR-9000 — OFFICIAL REJECTION NOTICE</div>
+  </div>
+</div>
+<div style="height:3px;background:${cfg.color}"></div>
+
+<div style="padding:52px 80px 60px;position:relative;text-align:center;min-height:340px;display:flex;flex-direction:column;align-items:center">
+
+  <!-- Diagonal stamp background -->
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-14deg);pointer-events:none;z-index:0;white-space:nowrap">
+    <div style="font:400 84px/1 'Bebas Neue',sans-serif;color:${cfg.color};letter-spacing:.06em;border:5px solid ${cfg.color};padding:10px 28px;opacity:0.1">${cfg.stamp}</div>
+  </div>
+
+  <div style="font:600 9px/1 Inter,sans-serif;letter-spacing:.22em;text-transform:uppercase;color:${cfg.color};margin-bottom:28px;position:relative;z-index:1">
+    CARR-9000 // SUBMISSION DECLINED // REF: ${refId}
+  </div>
+
+  ${imageSection}
+
+  <div style="position:relative;z-index:1;max-width:660px">
+    <p style="font:italic 700 28px/1.5 'Playfair Display',serif;color:#111;margin-bottom:20px">"${message}"</p>
+    <p style="font:400 14px/1.7 Inter,sans-serif;color:#666;letter-spacing:.01em">${cfg.sub}</p>
+  </div>
+
+</div>
+
+<div style="background:#111;padding:14px 28px;display:flex;align-items:center;justify-content:space-between">
+  <div style="font:400 9px/1.5 Inter,sans-serif;color:rgba(255,255,255,0.3);letter-spacing:.04em">This decision is final. CARR-9000 does not accept appeals. For entertainment purposes only.</div>
+  <div style="font:700 10px/1 'Playfair Display',serif;color:rgba(255,255,255,0.2);font-style:italic">CARR-9000</div>
+</div>
+
+</body></html>`;
+}
+
+// ─── SHOW REJECTION ───────────────────────────────────────────
+function showRejection(data, images) {
+  isRejection = true;
+  currentRejectionData = data;
+
+  const logoSrc = document.querySelector('#header img').src;
+  const html = rejectionHtml(data, images, logoSrc);
+  const blob = new Blob([html], { type: 'text/html' });
+  const blobUrl = URL.createObjectURL(blob);
+
+  const frame = document.getElementById('result-frame');
+  frame.style.height = '700px';
+  frame.onload = () => {
+    const measure = () => {
+      try {
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        const h = doc.body.scrollHeight;
+        if (h > 100) { frame.style.height = h + 'px'; scaleFrame(); }
+      } catch { /* keep fallback */ }
+    };
+    setTimeout(measure, 300);
+    setTimeout(measure, 1200);
+  };
+  frame.src = blobUrl;
+
+  // Hide layout/dark controls — not applicable for rejections
+  document.getElementById('layout-row').style.display = 'none';
+  document.getElementById('btn-dark').style.display = 'none';
+
+  // Configure share button
+  const shareBtn = document.getElementById('btn-share');
+  const testFile = new File([''], 'test.jpg', { type: 'image/jpeg' });
+  if (navigator.share && navigator.canShare && navigator.canShare({ files: [testFile] })) {
+    shareBtn.textContent = '📤 Share Rejection';
+    shareBtn.style.display = '';
+  } else if (navigator.share) {
+    shareBtn.textContent = '📤 Share';
+    shareBtn.style.display = '';
+  } else if (navigator.clipboard) {
+    shareBtn.textContent = '📋 Copy Text';
+    shareBtn.style.display = '';
+  } else {
+    shareBtn.style.display = 'none';
+  }
+
+  document.getElementById('upload-section').style.opacity = '0';
+  document.getElementById('upload-section').style.pointerEvents = 'none';
+  setTimeout(() => {
+    document.getElementById('upload-section').style.display = 'none';
+    document.getElementById('action-bar').classList.add('active');
+    document.getElementById('result-frame-wrap').classList.add('active');
+    scaleFrame();
+  }, 400);
+}
+
 // ─── RENDER MAGAZINE ─────────────────────────────────────────
 function renderResult(data, images) {
+  isRejection = false;
+  currentRejectionData = null;
+  // Restore controls that showRejection may have hidden
+  document.getElementById('layout-row').style.display = '';
   const badge = totalBadge(data.total_score);
   const badgeColor = isBeastMode ? '#e53935' : badge.color;
   const accentColor = isBeastMode ? '#e53935' : '#f5a623';
@@ -1445,9 +1594,15 @@ document.getElementById('btn-download').addEventListener('click', async () => {
 
 // ─── SHARE ───────────────────────────────────────────────────
 document.getElementById('btn-share').addEventListener('click', async () => {
-  if (!currentData) return;
-  const badge = totalBadge(currentData.total_score);
-  const shareText = `CARR-9000 has issued its verdict on ${currentData.car_name}.\nFinal Score: ${currentData.total_score} / 10,000 — "${badge.label}"`;
+  if (!currentData && !isRejection) return;
+
+  let shareText;
+  if (isRejection && currentRejectionData) {
+    shareText = `CARR-9000 has issued a rejection notice:\n"${currentRejectionData.message || 'Submission declined.'}"\n\nroastedrides.com`;
+  } else {
+    const badge = totalBadge(currentData.total_score);
+    shareText = `CARR-9000 has issued its verdict on ${currentData.car_name}.\nFinal Score: ${currentData.total_score} / 10,000 — "${badge.label}"`;
+  }
 
   if (navigator.share) {
     try {
@@ -1515,6 +1670,11 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   document.getElementById('file-input').value = '';
   document.getElementById('camera-input').value = '';
   updateThumbs();
+
+  // Reset rejection state
+  isRejection = false;
+  currentRejectionData = null;
+  document.getElementById('layout-row').style.display = '';
 
   // Reset layout selector
   currentLayoutIdx = -1;
