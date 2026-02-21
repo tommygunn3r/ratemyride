@@ -107,10 +107,10 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { image, mimeType, beastMode } = req.body;
+  const { images, beastMode } = req.body;
 
-  if (!image || !mimeType) {
-    return res.status(400).json({ error: 'Missing image or mimeType' });
+  if (!images || !Array.isArray(images) || images.length === 0) {
+    return res.status(400).json({ error: 'Missing images array' });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -126,7 +126,7 @@ export default async function handler(req, res) {
     contents: [{
       role: 'user',
       parts: [
-        { inline_data: { mime_type: mimeType, data: image } },
+        ...images.map(img => ({ inline_data: { mime_type: img.mimeType, data: img.data } })),
         { text: 'Analyze this vehicle and return your assessment as JSON.' }
       ]
     }],

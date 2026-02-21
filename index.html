@@ -170,6 +170,77 @@
 
     #file-input, #camera-input { display: none; }
 
+    /* ─── IMAGE THUMBNAILS ───────────────────────────────── */
+    #image-thumbs {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+
+    .thumb-card {
+      position: relative;
+      width: 120px;
+      height: 90px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.15);
+      flex-shrink: 0;
+    }
+
+    .thumb-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .thumb-remove {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      font-size: 12px;
+      line-height: 20px;
+      text-align: center;
+      cursor: pointer;
+      border: none;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .thumb-remove:hover { background: #e53935; }
+
+    .thumb-add {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 120px;
+      height: 90px;
+      border-radius: 8px;
+      border: 2px dashed rgba(255,255,255,0.2);
+      color: var(--text-dim);
+      font-size: 24px;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+      flex-shrink: 0;
+    }
+
+    .thumb-add:hover { border-color: var(--accent); color: var(--accent); }
+
+    #btn-dark {
+      background: rgba(255,255,255,0.05);
+      color: var(--text-dim);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    #btn-dark:hover { color: var(--text); border-color: rgba(255,255,255,0.25); }
+
     /* ─── SCANNING OVERLAY ───────────────────────────── */
     #scan-overlay {
       position: fixed;
@@ -464,8 +535,11 @@
           📷 Camera
         </button>
       </div>
-      <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" />
+      <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple />
       <input type="file" id="camera-input" accept="image/*" capture="environment" />
+
+      <div id="image-thumbs" style="display:none"></div>
+      <button id="btn-rate" class="upload-btn primary" style="display:none">🔍 Rate This Ride</button>
 
       <input type="checkbox" id="beast-checkbox" />
       <div id="beast-toggle-wrap">
@@ -480,6 +554,7 @@
     <div id="action-bar">
       <button class="action-btn" id="btn-download">📥 Download as Image</button>
       <button class="action-btn" id="btn-share">🔗 Share</button>
+      <button class="action-btn" id="btn-dark">🌙 Dark</button>
       <button class="action-btn" id="btn-reset">🔄 Rate Another</button>
     </div>
 
@@ -517,10 +592,11 @@ const MAX_SIZE_MB = 10;
 
 // ─── STATE ───────────────────────────────────────────────────
 let currentData = null;
-let currentImageB64 = null;
-let currentImageMime = null;
 let currentCarName = 'the-vehicle';
 let isBeastMode = false;
+let pendingImages = [];      // [{base64, mimeType, dataUrl}] pre-submit
+let currentImages = [];      // [dataUrl, ...] post-submit, for re-render
+let isArticleDarkMode = false;
 
 // ─── SCAN MESSAGES ───────────────────────────────────────────
 const scanMessages = [
@@ -616,38 +692,97 @@ dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-ove
 dropZone.addEventListener('drop', e => {
   e.preventDefault();
   dropZone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file) handleFile(file);
+  if (e.dataTransfer.files.length) addImages(e.dataTransfer.files);
 });
 
 document.getElementById('file-input').addEventListener('change', e => {
-  if (e.target.files[0]) handleFile(e.target.files[0]);
+  if (e.target.files.length) addImages(e.target.files);
+  e.target.value = '';
 });
 
 document.getElementById('camera-input').addEventListener('change', e => {
-  if (e.target.files[0]) handleFile(e.target.files[0]);
+  if (e.target.files.length) addImages(e.target.files);
+  e.target.value = '';
 });
 
-// ─── FILE HANDLING ───────────────────────────────────────────
-function handleFile(file) {
-  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
-  if (!allowed.includes(file.type) && !file.name.match(/\.(heic|heif)$/i)) {
-    showToast('CARR-9000 only accepts JPEG, PNG, WEBP, or HEIC images.');
-    return;
-  }
-  if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-    showToast(`File exceeds ${MAX_SIZE_MB}MB. CARR-9000 has standards.`);
-    return;
+document.getElementById('btn-rate').addEventListener('click', () => {
+  if (pendingImages.length) submitImage();
+});
+
+// ─── IMAGE QUEUE ──────────────────────────────────────────────
+const MAX_IMAGES = 3;
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+
+function addImages(fileList) {
+  const files = Array.from(fileList);
+  let added = 0;
+  const toProcess = [];
+
+  for (const file of files) {
+    if (pendingImages.length + toProcess.length >= MAX_IMAGES) {
+      showToast(`CARR-9000 accepts up to ${MAX_IMAGES} images. Extras ignored.`);
+      break;
+    }
+    if (!ALLOWED_TYPES.includes(file.type) && !file.name.match(/\.(heic|heif)$/i)) {
+      showToast('CARR-9000 only accepts JPEG, PNG, WEBP, or HEIC images.');
+      continue;
+    }
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      showToast(`File exceeds ${MAX_SIZE_MB}MB. CARR-9000 has standards.`);
+      continue;
+    }
+    toProcess.push(file);
+    added++;
   }
 
-  const reader = new FileReader();
-  reader.onload = e => {
-    compressImage(e.target.result, compressed => {
-      const base64 = compressed.split(',')[1];
-      submitImage(base64, 'image/jpeg', compressed);
-    });
-  };
-  reader.readAsDataURL(file);
+  toProcess.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      compressImage(ev.target.result, compressed => {
+        pendingImages.push({ base64: compressed.split(',')[1], mimeType: 'image/jpeg', dataUrl: compressed });
+        updateThumbs();
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function updateThumbs() {
+  const container = document.getElementById('image-thumbs');
+  const rateBtn = document.getElementById('btn-rate');
+  container.innerHTML = '';
+
+  pendingImages.forEach((img, idx) => {
+    const card = document.createElement('div');
+    card.className = 'thumb-card';
+    const image = document.createElement('img');
+    image.src = img.dataUrl;
+    const remove = document.createElement('button');
+    remove.className = 'thumb-remove';
+    remove.textContent = '×';
+    remove.onclick = () => removePendingImage(idx);
+    card.appendChild(image);
+    card.appendChild(remove);
+    container.appendChild(card);
+  });
+
+  if (pendingImages.length < MAX_IMAGES) {
+    const add = document.createElement('div');
+    add.className = 'thumb-add';
+    add.title = 'Add another photo';
+    add.textContent = '+';
+    add.onclick = () => document.getElementById('file-input').click();
+    container.appendChild(add);
+  }
+
+  const hasImages = pendingImages.length > 0;
+  container.style.display = hasImages ? 'flex' : 'none';
+  rateBtn.style.display = hasImages ? '' : 'none';
+}
+
+function removePendingImage(idx) {
+  pendingImages.splice(idx, 1);
+  updateThumbs();
 }
 
 // ─── IMAGE COMPRESSION ───────────────────────────────────────
@@ -670,10 +805,7 @@ function compressImage(dataUrl, callback) {
 }
 
 // ─── SUBMIT ──────────────────────────────────────────────────
-async function submitImage(base64, mimeType, dataUrl) {
-  currentImageB64 = base64;
-  currentImageMime = mimeType;
-
+async function submitImage() {
   const minDuration = 4500;
   const startTime = Date.now();
 
@@ -683,7 +815,10 @@ async function submitImage(base64, mimeType, dataUrl) {
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64, mimeType, beastMode: isBeastMode })
+      body: JSON.stringify({
+        images: pendingImages.map(img => ({ data: img.base64, mimeType: img.mimeType })),
+        beastMode: isBeastMode
+      })
     });
 
     let data;
@@ -691,10 +826,9 @@ async function submitImage(base64, mimeType, dataUrl) {
     try {
       data = JSON.parse(rawText);
     } catch {
-      data = { error: res.status === 413 ? 'Image too large for CARR-9000\'s servers. Try a smaller file.' : `Server error ${res.status}.` };
+      data = { error: res.status === 413 ? 'Images too large for CARR-9000\'s servers. Try smaller files.' : `Server error ${res.status}.` };
     }
 
-    // Ensure minimum scan duration
     const elapsed = Date.now() - startTime;
     if (elapsed < minDuration) {
       await new Promise(r => setTimeout(r, minDuration - elapsed));
@@ -713,8 +847,9 @@ async function submitImage(base64, mimeType, dataUrl) {
     }
 
     currentData = data;
+    currentImages = pendingImages.map(img => img.dataUrl);
     currentCarName = (data.car_name || 'the-vehicle').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    renderResult(data, dataUrl);
+    renderResult(data, currentImages);
 
   } catch (err) {
     stopScan();
@@ -761,55 +896,70 @@ function gradeColor(score) {
 const FONTS_STANDARD = `<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>`;
 const FONTS_WITH_CAVEAT = `<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Inter:wght@300;400;500;600;700&family=Caveat:wght@400;700&display=swap" rel="stylesheet"/>`;
 
+// ─── EXTRA PHOTOS STRIP HELPER ───────────────────────────────
+function extraPhotos(images, fromIdx, borderColor) {
+  const extras = images.slice(fromIdx).filter(Boolean);
+  if (!extras.length) return '';
+  return `<div style="display:flex;border-top:1px solid ${borderColor}">${extras.map(src=>`<div style="flex:1;height:160px;overflow:hidden"><img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block"/></div>`).join('')}</div>`;
+}
+
 // ─── LAYOUT A — Classic Editorial ────────────────────────────
-function layoutA(data, imageDataUrl, ctx) {
-  const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead } = ctx;
+function layoutA(data, images, ctx) {
+  const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead, darkMode: dm } = ctx;
+  const bg = dm?'#111':'#fafaf8', text = dm?'#e8e8e8':'#222', dimT = dm?'#aaa':'#555';
+  const border = dm?'rgba(255,255,255,.1)':'#e0e0e0', sideBg = dm?'#1a1a1a':'#f0f0ee';
+  const titleC = dm?'#fff':'#0a0a0a', scoreC = dm?'rgba(255,255,255,.35)':'#999';
+  const catBdr = dm?'rgba(255,255,255,.08)':'#ddd', catLbl = dm?'rgba(255,255,255,.5)':'#333', catDim = dm?'#888':'#666';
+  const dividerC = dm?'rgba(255,255,255,.4)':'#222';
   const storyParas = (data.story||'').split(/\n\n+/).filter(p=>p.trim()).map(p=>`<p>${p.trim()}</p>`);
-  const pullHtml = `<div style="border-left:3px solid ${accentColor};padding:16px 20px;margin:24px 0;background:${accentColor}18"><div style="font:italic 700 19px/1.5 'Playfair Display',serif;color:#1a1a1a">"${data.pull_quote}"</div></div>`;
+  const pullHtml = `<div style="border-left:3px solid ${accentColor};padding:16px 20px;margin:24px 0;background:${accentColor}22"><div style="font:italic 700 19px/1.5 'Playfair Display',serif;color:${dm?'#ddd':'#1a1a1a'}">"${data.pull_quote}"</div></div>`;
   if (storyParas.length > 1) storyParas.splice(1, 0, pullHtml); else storyParas.push(pullHtml);
   const catRows = data.categories.map(cat => {
     const c = categoryColor(cat.score);
-    return `<div style="padding:10px 0;border-bottom:1px solid #ddd"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px"><span style="font:600 10px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:#333;flex:1">${cat.name}</span><span style="font:700 13px/1 Inter,sans-serif;color:${c}">${cat.score}<span style="font:400 9px/1 Inter,sans-serif;color:#999"> /1,250</span></span></div><div style="height:3px;background:#e0e0e0;border-radius:2px;overflow:hidden;margin-bottom:5px"><div style="height:100%;width:${pct(cat.score,1250)}%;background:${c};border-radius:2px"></div></div><div style="font:400 10px/1.45 Inter,sans-serif;color:#666">${cat.reasoning}</div></div>`;
+    return `<div style="padding:10px 0;border-bottom:1px solid ${catBdr}"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px"><span style="font:600 10px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:${catLbl};flex:1">${cat.name}</span><span style="font:700 13px/1 Inter,sans-serif;color:${c}">${cat.score}<span style="font:400 9px/1 Inter,sans-serif;color:${scoreC}"> /1,250</span></span></div><div style="height:3px;background:${dm?'rgba(255,255,255,.08)':'#e0e0e0'};border-radius:2px;overflow:hidden;margin-bottom:5px"><div style="height:100%;width:${pct(cat.score,1250)}%;background:${c};border-radius:2px"></div></div><div style="font:400 10px/1.45 Inter,sans-serif;color:${catDim}">${cat.reasoning}</div></div>`;
   }).join('');
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fafaf8;color:#111;font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:${bg};color:${text};font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
 <div style="background:#111;color:#fff;padding:14px 28px;display:flex;align-items:center;justify-content:space-between"><img src="${logoSrc}" style="height:34px"/><div style="font:500 10px/1.6 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.6);text-align:right">Vol. 1 &nbsp;•&nbsp; Issue ${issueNum}<br/>${masthead}</div></div>
 <div style="height:2px;background:linear-gradient(90deg,${accentColor},${accentColor}cc)"></div>
-<div style="position:relative;width:100%;max-height:420px;overflow:hidden;background:#1a1a1a;line-height:0"><img src="${imageDataUrl}" style="width:100%;max-height:420px;object-fit:cover;display:block"/><div style="position:absolute;bottom:0;left:0;right:0;height:120px;background:linear-gradient(transparent,#fafaf8)"></div></div>
-<div style="padding:28px 28px 20px;position:relative;border-bottom:1px solid #e0e0e0">
+<div style="position:relative;width:100%;max-height:420px;overflow:hidden;background:#1a1a1a;line-height:0"><img src="${images[0]}" style="width:100%;max-height:420px;object-fit:cover;display:block"/><div style="position:absolute;bottom:0;left:0;right:0;height:120px;background:linear-gradient(transparent,${bg})"></div></div>
+<div style="padding:28px 28px 20px;position:relative;border-bottom:1px solid ${border}">
   <div style="position:absolute;top:24px;right:28px;width:90px;height:90px;border-radius:50%;border:3px solid ${badgeColor};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
     <div style="font:900 16px/1 'Playfair Display',serif;color:${badgeColor}">${data.total_score.toLocaleString()}</div>
-    <div style="font:400 8px/1 Inter,sans-serif;color:#888;margin-top:2px">/ 10,000</div>
+    <div style="font:400 8px/1 Inter,sans-serif;color:${scoreC};margin-top:2px">/ 10,000</div>
     <div style="font:700 7px/1.3 Inter,sans-serif;color:${badgeColor};text-transform:uppercase;letter-spacing:.05em;margin-top:4px;padding:0 4px">${badge.label}</div>
   </div>
-  <h1 style="font:900 44px/1.05 'Playfair Display',serif;letter-spacing:-.02em;padding-right:110px;color:#0a0a0a">${data.car_name}</h1>
-  <div style="font:italic 400 16px/1.5 'Playfair Display',serif;color:#555;margin-top:10px;padding-right:110px">${data.pull_quote}</div>
+  <h1 style="font:900 44px/1.05 'Playfair Display',serif;letter-spacing:-.02em;padding-right:110px;color:${titleC}">${data.car_name}</h1>
+  <div style="font:italic 400 16px/1.5 'Playfair Display',serif;color:${dimT};margin-top:10px;padding-right:110px">${data.pull_quote}</div>
 </div>
 <div style="display:flex">
-  <div style="flex:0 0 62%;padding:28px 24px 32px 28px;border-right:1px solid #e0e0e0"><div style="font:400 15px/1.75 'Playfair Display',serif;color:#222;text-align:justify">${storyParas.join('')}</div></div>
-  <div style="flex:0 0 38%;padding:24px 20px 32px 22px;background:#f0f0ee">
-    <div style="font:700 10px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:${accentColor};border-bottom:1px solid #ddd;padding-bottom:10px;margin-bottom:16px">CARR-9000 Assessment</div>
+  <div style="flex:0 0 62%;padding:28px 24px 32px 28px;border-right:1px solid ${border}"><div style="font:400 15px/1.75 'Playfair Display',serif;color:${text};text-align:justify">${storyParas.join('')}</div></div>
+  <div style="flex:0 0 38%;padding:24px 20px 32px 22px;background:${sideBg}">
+    <div style="font:700 10px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:${accentColor};border-bottom:1px solid ${catBdr};padding-bottom:10px;margin-bottom:16px">CARR-9000 Assessment</div>
     ${catRows}
-    <div style="margin-top:18px;padding-top:14px;border-top:2px solid #222;display:flex;justify-content:space-between;align-items:baseline">
-      <div style="font:700 10px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.12em;color:#333">Final Score</div>
-      <div style="text-align:right"><div style="font:900 26px/1 'Playfair Display',serif;color:${badgeColor}">${data.total_score.toLocaleString()}<span style="font:400 11px/1 Inter,sans-serif;color:#999"> / 10,000</span></div><div style="font:700 9px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.1em;color:${badgeColor};margin-top:3px">${badge.label}</div></div>
+    <div style="margin-top:18px;padding-top:14px;border-top:2px solid ${dividerC};display:flex;justify-content:space-between;align-items:baseline">
+      <div style="font:700 10px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.12em;color:${catLbl}">Final Score</div>
+      <div style="text-align:right"><div style="font:900 26px/1 'Playfair Display',serif;color:${badgeColor}">${data.total_score.toLocaleString()}<span style="font:400 11px/1 Inter,sans-serif;color:${scoreC}"> / 10,000</span></div><div style="font:700 9px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.1em;color:${badgeColor};margin-top:3px">${badge.label}</div></div>
     </div>
   </div>
 </div>
+${extraPhotos(images, 1, border)}
 <div style="background:#111;color:rgba(255,255,255,.5);padding:14px 28px;display:flex;align-items:center;justify-content:space-between"><div style="font:400 9px/1.6 Inter,sans-serif;letter-spacing:.04em">Results generated by CARR-9000. For entertainment purposes only. Accuracy not guaranteed. Feelings not considered.</div><div style="font:700 12px/1 'Playfair Display',serif;color:rgba(255,255,255,.3);font-style:italic">CARR-9000</div></div>
 </body></html>`;
 }
 
 // ─── LAYOUT B — Full Bleed Cover ──────────────────────────────
-function layoutB(data, imageDataUrl, ctx) {
-  const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead } = ctx;
-  const storyParas = (data.story||'').split(/\n\n+/).filter(p=>p.trim()).map(p=>`<p style="font:400 14px/1.7 'Playfair Display',serif;color:#ddd;margin-bottom:14px;text-align:justify">${p.trim()}</p>`).join('');
+function layoutB(data, images, ctx) {
+  const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead, darkMode: dm } = ctx;
+  const bodyBg = dm?'#0a0a0a':'#0d0d0d', sideBg = dm?'#0a0a0a':'#111';
+  const storyC = dm?'#bbb':'#ddd';
+  const storyParas = (data.story||'').split(/\n\n+/).filter(p=>p.trim()).map(p=>`<p style="font:400 14px/1.7 'Playfair Display',serif;color:${storyC};margin-bottom:14px;text-align:justify">${p.trim()}</p>`).join('');
   const catRows = data.categories.map(cat => {
     const c = categoryColor(cat.score);
     return `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font:600 9px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.6)">${cat.name}</span><span style="font:700 12px/1 Inter,sans-serif;color:${c}">${cat.score}</span></div><div style="height:2px;background:rgba(255,255,255,.1);border-radius:1px"><div style="height:100%;width:${pct(cat.score,1250)}%;background:${c};border-radius:1px"></div></div></div>`;
   }).join('');
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#0d0d0d;color:#fff;font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:${bodyBg};color:#fff;font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
 <div style="position:relative;height:500px;overflow:hidden;background:#111">
-  <img src="${imageDataUrl}" style="width:100%;height:100%;object-fit:cover;display:block"/>
+  <img src="${images[0]}" style="width:100%;height:100%;object-fit:cover;display:block"/>
   <div style="position:absolute;top:0;left:0;right:0;padding:16px 24px;background:linear-gradient(rgba(0,0,0,.8),transparent);display:flex;align-items:center;justify-content:space-between">
     <img src="${logoSrc}" style="height:30px"/>
     <span style="font:500 9px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.5)">Issue ${issueNum} &nbsp;·&nbsp; ${masthead}</span>
@@ -831,7 +981,7 @@ function layoutB(data, imageDataUrl, ctx) {
 <div style="height:2px;background:linear-gradient(90deg,${accentColor},${accentColor}88)"></div>
 <div style="display:flex">
   <div style="flex:1;padding:28px 24px 32px 28px;border-right:1px solid rgba(255,255,255,.08)">${storyParas}</div>
-  <div style="flex:0 0 320px;padding:24px 20px 32px 22px;background:#111">
+  <div style="flex:0 0 320px;padding:24px 20px 32px 22px;background:${sideBg}">
     <div style="font:700 10px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:${accentColor};border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:10px;margin-bottom:14px">CARR-9000 Assessment</div>
     ${catRows}
     <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,.2);display:flex;justify-content:space-between;align-items:baseline">
@@ -840,76 +990,86 @@ function layoutB(data, imageDataUrl, ctx) {
     </div>
   </div>
 </div>
+${extraPhotos(images, 1, 'rgba(255,255,255,.08)')}
 <div style="background:#0a0a0a;padding:12px 28px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.06)"><div style="font:400 9px/1.5 Inter,sans-serif;color:rgba(255,255,255,.3);letter-spacing:.04em">Results generated by CARR-9000. For entertainment purposes only. Feelings not considered.</div><div style="font:700 10px/1 'Playfair Display',serif;color:rgba(255,255,255,.2);font-style:italic">CARR-9000</div></div>
 </body></html>`;
 }
 
 // ─── LAYOUT C — Centerfold ────────────────────────────────────
-function layoutC(data, imageDataUrl, ctx) {
-  const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead } = ctx;
+function layoutC(data, images, ctx) {
+  const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead, darkMode: dm } = ctx;
+  const bg = dm?'#111':'#fff', text = dm?'#ccc':'#222', border = dm?'rgba(255,255,255,.1)':'#e0e0e0';
+  const tileBg = dm?'#1a1a1a':'#f5f5f5', titleC = dm?'#fff':'#0a0a0a', scoreC = dm?'rgba(255,255,255,.35)':'#999';
+  const tileLabel = dm?'rgba(255,255,255,.4)':'#888', tileBar = dm?'rgba(255,255,255,.06)':'#e8e8e8';
   const storyParas = (data.story||'').split(/\n\n+/).filter(p=>p.trim());
   const half = Math.ceil(storyParas.length / 2);
-  const col1 = storyParas.slice(0, half).map(p=>`<p style="font:400 13px/1.7 'Playfair Display',serif;color:#222;margin-bottom:12px;text-align:justify">${p.trim()}</p>`).join('');
-  const col2 = storyParas.slice(half).map(p=>`<p style="font:400 13px/1.7 'Playfair Display',serif;color:#222;margin-bottom:12px;text-align:justify">${p.trim()}</p>`).join('');
+  const col1 = storyParas.slice(0, half).map(p=>`<p style="font:400 13px/1.7 'Playfair Display',serif;color:${text};margin-bottom:12px;text-align:justify">${p.trim()}</p>`).join('');
+  const col2 = storyParas.slice(half).map(p=>`<p style="font:400 13px/1.7 'Playfair Display',serif;color:${text};margin-bottom:12px;text-align:justify">${p.trim()}</p>`).join('');
   const tiles = data.categories.map(cat => {
     const c = categoryColor(cat.score);
     const shortName = cat.name.split(' ').slice(0,2).join(' ');
-    return `<div style="flex:1;text-align:center;padding:10px 6px;border-right:1px solid #e0e0e0"><div style="font:600 8px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:5px">${shortName}</div><div style="font:700 18px/1 Inter,sans-serif;color:${c}">${cat.score}</div><div style="font:400 8px/1 Inter,sans-serif;color:#aaa;margin-top:2px">/1250</div><div style="height:2px;background:#e8e8e8;border-radius:1px;margin-top:6px"><div style="height:100%;width:${pct(cat.score,1250)}%;background:${c};border-radius:1px"></div></div></div>`;
+    return `<div style="flex:1;text-align:center;padding:10px 6px;border-right:1px solid ${border}"><div style="font:600 8px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:${tileLabel};margin-bottom:5px">${shortName}</div><div style="font:700 18px/1 Inter,sans-serif;color:${c}">${cat.score}</div><div style="font:400 8px/1 Inter,sans-serif;color:${tileLabel};margin-top:2px">/1250</div><div style="height:2px;background:${tileBar};border-radius:1px;margin-top:6px"><div style="height:100%;width:${pct(cat.score,1250)}%;background:${c};border-radius:1px"></div></div></div>`;
   }).join('');
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#111;font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:${bg};color:${text};font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
 <div style="background:#111;padding:12px 24px;display:flex;align-items:center;justify-content:space-between"><img src="${logoSrc}" style="height:30px"/><div style="font:500 9px/1.6 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.5);text-align:right">Vol. 1 · Issue ${issueNum}<br/>${masthead}</div></div>
 <div style="height:2px;background:linear-gradient(90deg,${accentColor},${accentColor}66)"></div>
-<div style="display:flex;background:#f5f5f5;border-bottom:2px solid #111">${tiles}</div>
+<div style="display:flex;background:${tileBg};border-bottom:2px solid ${dm?'rgba(255,255,255,.15)':'#111'}">${tiles}</div>
 <div style="position:relative;height:340px;overflow:hidden;background:#1a1a1a">
-  <img src="${imageDataUrl}" style="width:100%;height:100%;object-fit:cover;display:block"/>
+  <img src="${images[0]}" style="width:100%;height:100%;object-fit:cover;display:block"/>
   <div style="position:absolute;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center">
     <div style="text-align:center;padding:0 80px"><p style="font:italic 700 26px/1.45 'Playfair Display',serif;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.7)">"${data.pull_quote}"</p></div>
   </div>
 </div>
-<div style="padding:16px 24px 12px;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;gap:16px">
-  <div style="flex:1"><h1 style="font:900 40px/1 'Playfair Display',serif;color:#0a0a0a;letter-spacing:-.02em">${data.car_name}</h1></div>
+<div style="padding:16px 24px 12px;border-bottom:1px solid ${border};display:flex;align-items:center;justify-content:space-between;gap:16px">
+  <div style="flex:1"><h1 style="font:900 40px/1 'Playfair Display',serif;color:${titleC};letter-spacing:-.02em">${data.car_name}</h1></div>
   <div style="width:80px;height:80px;border-radius:50%;border:3px solid ${badgeColor};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;flex-shrink:0">
     <div style="font:900 14px/1 'Playfair Display',serif;color:${badgeColor}">${data.total_score.toLocaleString()}</div>
-    <div style="font:400 7px/1 Inter,sans-serif;color:#999;margin-top:2px">/ 10,000</div>
+    <div style="font:400 7px/1 Inter,sans-serif;color:${scoreC};margin-top:2px">/ 10,000</div>
     <div style="font:700 7px/1.2 Inter,sans-serif;color:${badgeColor};text-transform:uppercase;letter-spacing:.04em;margin-top:3px;padding:0 4px">${badge.label}</div>
   </div>
 </div>
-<div style="display:flex;padding:20px 24px 28px;gap:24px"><div style="flex:1">${col1}</div><div style="flex:1;border-left:1px solid #e0e0e0;padding-left:24px">${col2}</div></div>
+<div style="display:flex;padding:20px 24px 28px;gap:24px"><div style="flex:1">${col1}</div><div style="flex:1;border-left:1px solid ${border};padding-left:24px">${col2}</div></div>
+${extraPhotos(images, 1, border)}
 <div style="background:#111;padding:12px 24px;display:flex;justify-content:space-between;align-items:center"><div style="font:400 9px/1.5 Inter,sans-serif;color:rgba(255,255,255,.4)">Results generated by CARR-9000. For entertainment purposes only. Feelings not considered.</div><div style="font:700 10px/1 'Playfair Display',serif;color:rgba(255,255,255,.25);font-style:italic">CARR-9000</div></div>
 </body></html>`;
 }
 
 // ─── LAYOUT D — Tabloid ───────────────────────────────────────
-function layoutD(data, imageDataUrl, ctx) {
-  const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead } = ctx;
+function layoutD(data, images, ctx) {
+  const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead, darkMode: dm } = ctx;
+  const bg = dm?'#111':'#fff', text = dm?'#ccc':'#222', dimT = dm?'#888':'#555';
+  const border = dm?'rgba(255,255,255,.15)':'#111', cardBdr = dm?'rgba(255,255,255,.08)':'#eee';
+  const catLbl = dm?'rgba(255,255,255,.6)':'#333', catDim = dm?'#666':'#888', scoreC = dm?'rgba(255,255,255,.35)':'#999';
   const storyParas = (data.story||'').split(/\n\n+/).filter(p=>p.trim()).map(p => {
     const words = p.trim().split(' ');
     const first = words.shift();
-    return `<p style="font:400 13px/1.65 Inter,sans-serif;color:#222;margin-bottom:12px"><strong style="font-weight:800;font-size:14px">${first}</strong> ${words.join(' ')}</p>`;
+    return `<p style="font:400 13px/1.65 Inter,sans-serif;color:${text};margin-bottom:12px"><strong style="font-weight:800;font-size:14px">${first}</strong> ${words.join(' ')}</p>`;
   }).join('');
   const reportCard = data.categories.map(cat => {
     const grade = getGrade(cat.score);
     const gc = gradeColor(cat.score);
-    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #eee"><div style="flex:1"><div style="font:700 9px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#333">${cat.name}</div><div style="font:400 9px/1.3 Inter,sans-serif;color:#888;margin-top:2px">${cat.reasoning.split('.')[0]}.</div></div><div style="font:400 9px/1 Inter,sans-serif;color:#999;flex-shrink:0">${cat.score}</div><div style="font:900 22px/1 Inter,sans-serif;color:${gc};min-width:32px;text-align:center;flex-shrink:0">${grade}</div></div>`;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid ${cardBdr}"><div style="flex:1"><div style="font:700 9px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:${catLbl}">${cat.name}</div><div style="font:400 9px/1.3 Inter,sans-serif;color:${catDim};margin-top:2px">${cat.reasoning.split('.')[0]}.</div></div><div style="font:400 9px/1 Inter,sans-serif;color:${scoreC};flex-shrink:0">${cat.score}</div><div style="font:900 22px/1 Inter,sans-serif;color:${gc};min-width:32px;text-align:center;flex-shrink:0">${grade}</div></div>`;
   }).join('');
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#111;font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
+  const leftImages = images.slice(1).filter(Boolean).map(src=>`<div style="margin-top:10px;height:140px;overflow:hidden;border:2px solid ${border}"><img src="${src}" style="width:100%;height:100%;object-fit:cover"/></div>`).join('');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:${bg};color:${text};font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
 <div style="background:#111">
   <div style="background:${accentColor};padding:7px 24px;display:flex;align-items:center;justify-content:space-between"><img src="${logoSrc}" style="height:26px"/><span style="font:700 9px/1 Inter,sans-serif;color:#000;letter-spacing:.14em;text-transform:uppercase">Issue ${issueNum} &nbsp;·&nbsp; ${masthead}</span></div>
 </div>
-<div style="padding:20px 28px 16px;border-bottom:4px solid #111">
-  <h1 style="font:900 68px/0.92 Inter,sans-serif;color:#111;text-transform:uppercase;letter-spacing:-.03em;word-break:break-word">${data.car_name}</h1>
-  <p style="font:italic 400 20px/1.4 'Playfair Display',serif;color:#555;margin-top:14px;border-left:4px solid ${accentColor};padding-left:14px">"${data.pull_quote}"</p>
+<div style="padding:20px 28px 16px;border-bottom:4px solid ${border}">
+  <h1 style="font:900 68px/0.92 Inter,sans-serif;color:${dm?'#fff':'#111'};text-transform:uppercase;letter-spacing:-.03em;word-break:break-word">${data.car_name}</h1>
+  <p style="font:italic 400 20px/1.4 'Playfair Display',serif;color:${dimT};margin-top:14px;border-left:4px solid ${accentColor};padding-left:14px">"${data.pull_quote}"</p>
 </div>
 <div style="display:flex">
-  <div style="flex:0 0 52%;padding:20px 20px 24px 28px;border-right:2px solid #111">${storyParas}
-    <div style="margin-top:16px;height:220px;overflow:hidden;border:2px solid #111"><img src="${imageDataUrl}" style="width:100%;height:100%;object-fit:cover"/></div>
+  <div style="flex:0 0 52%;padding:20px 20px 24px 28px;border-right:2px solid ${border}">${storyParas}
+    <div style="margin-top:16px;height:220px;overflow:hidden;border:2px solid ${border}"><img src="${images[0]}" style="width:100%;height:100%;object-fit:cover"/></div>
+    ${leftImages}
   </div>
   <div style="flex:1;padding:20px 20px 24px 18px">
-    <div style="font:700 9px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:${accentColor};border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:10px">VEHICULAR REPORT CARD</div>
+    <div style="font:700 9px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:${accentColor};border-bottom:2px solid ${border};padding-bottom:8px;margin-bottom:10px">VEHICULAR REPORT CARD</div>
     ${reportCard}
-    <div style="margin-top:14px;padding-top:12px;border-top:2px solid #111;display:flex;justify-content:space-between;align-items:center">
-      <span style="font:700 10px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.1em;color:#333">Final Score</span>
-      <div style="text-align:right"><div style="font:900 30px/1 Inter,sans-serif;color:${accentColor}">${data.total_score.toLocaleString()}<span style="font:400 11px/1 Inter,sans-serif;color:#999"> / 10,000</span></div><div style="font:700 8px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:${badgeColor};margin-top:3px">${badge.label}</div></div>
+    <div style="margin-top:14px;padding-top:12px;border-top:2px solid ${border};display:flex;justify-content:space-between;align-items:center">
+      <span style="font:700 10px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.1em;color:${catLbl}">Final Score</span>
+      <div style="text-align:right"><div style="font:900 30px/1 Inter,sans-serif;color:${accentColor}">${data.total_score.toLocaleString()}<span style="font:400 11px/1 Inter,sans-serif;color:${scoreC}"> / 10,000</span></div><div style="font:700 8px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:${badgeColor};margin-top:3px">${badge.label}</div></div>
     </div>
   </div>
 </div>
@@ -918,8 +1078,11 @@ function layoutD(data, imageDataUrl, ctx) {
 }
 
 // ─── LAYOUT E — Workshop Inspection ──────────────────────────
-function layoutE(data, imageDataUrl, ctx) {
-  const { badge, badgeColor, logoSrc, issueNum, accentColor } = ctx;
+function layoutE(data, images, ctx) {
+  const { badge, badgeColor, logoSrc, issueNum, accentColor, darkMode: dm } = ctx;
+  const bg = dm?'#1a1612':'#fdf8e1', textC = dm?'#ccc':'#111', dimT = dm?'#888':'#777';
+  const dashC = dm?'rgba(255,255,255,.15)':'#b5a98a', lineC = dm?'rgba(255,255,255,.08)':'#c5b9a0';
+  const catNameC = dm?'rgba(255,255,255,.6)':'#333', catDimC = dm?'#777':'#666';
   const stamps = [
     { max: 2500, text: 'APPROVED', color: '#2e7d32' },
     { max: 5000, text: 'MARGINAL', color: '#f57f17' },
@@ -932,28 +1095,31 @@ function layoutE(data, imageDataUrl, ctx) {
   const checklist = data.categories.map(cat => {
     const pass = cat.score <= 625;
     const ic = pass ? '#2e7d32' : '#c62828';
-    return `<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px dashed #c5b9a0"><span style="font:700 14px/1 'Courier New',monospace;color:${ic};flex-shrink:0;margin-top:1px">${pass?'☑':'☒'}</span><div style="flex:1"><div style="font:700 9px/1 'Courier New',monospace;text-transform:uppercase;letter-spacing:.06em;color:#333">${cat.name}</div><div style="font:400 9px/1 'Courier New',monospace;color:${ic};margin-top:2px">${pass?'PASS':'FAIL'} — ${cat.score}/1250</div><div style="font:400 9px/1.4 'Courier New',monospace;color:#666;margin-top:3px">${cat.reasoning}</div></div></div>`;
+    return `<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px dashed ${dashC}"><span style="font:700 14px/1 'Courier New',monospace;color:${ic};flex-shrink:0;margin-top:1px">${pass?'☑':'☒'}</span><div style="flex:1"><div style="font:700 9px/1 'Courier New',monospace;text-transform:uppercase;letter-spacing:.06em;color:${catNameC}">${cat.name}</div><div style="font:400 9px/1 'Courier New',monospace;color:${ic};margin-top:2px">${pass?'PASS':'FAIL'} — ${cat.score}/1250</div><div style="font:400 9px/1.4 'Courier New',monospace;color:${catDimC};margin-top:3px">${cat.reasoning}</div></div></div>`;
   }).join('');
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_WITH_CAVEAT}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fdf8e1;color:#111;font-family:'Courier New',monospace;width:900px;min-width:900px}</style></head><body>
+  const extraImgs = images.slice(1).filter(Boolean);
+  const extraImgHtml = extraImgs.length ? `<div style="display:flex;gap:6px;margin-top:10px">${extraImgs.map(src=>`<div style="flex:1;height:120px;overflow:hidden;border:1px solid ${dashC}"><img src="${src}" style="width:100%;height:100%;object-fit:cover"/></div>`).join('')}</div>` : '';
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_WITH_CAVEAT}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:${bg};color:${textC};font-family:'Courier New',monospace;width:900px;min-width:900px}</style></head><body>
 <div style="background:#2c2c2c;padding:14px 28px;display:flex;align-items:center;justify-content:space-between"><img src="${logoSrc}" style="height:32px"/><div style="font:700 9px/1.6 'Courier New',monospace;color:#aaa;text-align:right;letter-spacing:.06em">INSPECTION FORM NO. ${issueNum}<br/>DATE: ${today}<br/>INSPECTOR: CARR-9000</div></div>
-<div style="padding:18px 28px 16px;border-bottom:2px dashed #b5a98a;position:relative">
+<div style="padding:18px 28px 16px;border-bottom:2px dashed ${dashC};position:relative">
   <div style="position:absolute;top:18px;right:28px;transform:rotate(-8deg);border:4px solid ${stamp.color};border-radius:4px;padding:8px 14px;text-align:center;opacity:.8">
     <div style="font:900 24px/1 Inter,sans-serif;color:${stamp.color};letter-spacing:.06em;text-transform:uppercase;white-space:nowrap">${stamp.text}</div>
     <div style="font:700 9px/1 'Courier New',monospace;color:${stamp.color};margin-top:4px">${data.total_score} / 10,000</div>
   </div>
-  <div style="font:700 10px/1 'Courier New',monospace;text-transform:uppercase;letter-spacing:.08em;color:#777;margin-bottom:6px">VEHICLE IDENTIFICATION</div>
-  <div style="font:900 38px/1 'Playfair Display',serif;color:#1a1a1a;padding-right:200px">${data.car_name}</div>
-  <div style="font:italic 400 14px/1.5 'Playfair Display',serif;color:#555;margin-top:8px;padding-right:200px">"${data.pull_quote}"</div>
+  <div style="font:700 10px/1 'Courier New',monospace;text-transform:uppercase;letter-spacing:.08em;color:${dimT};margin-bottom:6px">VEHICLE IDENTIFICATION</div>
+  <div style="font:900 38px/1 'Playfair Display',serif;color:${dm?'#f0ead8':'#1a1a1a'};padding-right:200px">${data.car_name}</div>
+  <div style="font:italic 400 14px/1.5 'Playfair Display',serif;color:${dm?'#999':'#555'};margin-top:8px;padding-right:200px">"${data.pull_quote}"</div>
 </div>
 <div style="display:flex">
-  <div style="flex:0 0 42%;padding:16px 16px 20px 28px;border-right:2px dashed #b5a98a">
-    <div style="font:700 9px/1 'Courier New',monospace;text-transform:uppercase;letter-spacing:.1em;color:#777;margin-bottom:10px">☐ INSPECTION CHECKLIST</div>
+  <div style="flex:0 0 42%;padding:16px 16px 20px 28px;border-right:2px dashed ${dashC}">
+    <div style="font:700 9px/1 'Courier New',monospace;text-transform:uppercase;letter-spacing:.1em;color:${dimT};margin-bottom:10px">☐ INSPECTION CHECKLIST</div>
     ${checklist}
   </div>
   <div style="flex:1;padding:16px 24px 20px 20px">
-    <div style="font:700 9px/1 'Courier New',monospace;text-transform:uppercase;letter-spacing:.1em;color:#777;margin-bottom:10px">✎ INSPECTOR NOTES</div>
-    <div style="font:400 16px/1.85 Caveat,cursive;color:#1a1a1a;background:repeating-linear-gradient(transparent,transparent 29px,#c5b9a0 29px,#c5b9a0 30px);padding-bottom:4px;min-height:180px">${storyText}</div>
-    <div style="margin-top:14px;height:190px;overflow:hidden;border:1px solid #b5a98a"><img src="${imageDataUrl}" style="width:100%;height:100%;object-fit:cover"/></div>
+    <div style="font:700 9px/1 'Courier New',monospace;text-transform:uppercase;letter-spacing:.1em;color:${dimT};margin-bottom:10px">✎ INSPECTOR NOTES</div>
+    <div style="font:400 16px/1.85 Caveat,cursive;color:${dm?'#d4c9a8':'#1a1a1a'};background:repeating-linear-gradient(transparent,transparent 29px,${lineC} 29px,${lineC} 30px);padding-bottom:4px;min-height:180px">${storyText}</div>
+    <div style="margin-top:14px;height:190px;overflow:hidden;border:1px solid ${dashC}"><img src="${images[0]}" style="width:100%;height:100%;object-fit:cover"/></div>
+    ${extraImgHtml}
   </div>
 </div>
 <div style="background:#2c2c2c;padding:12px 28px;display:flex;justify-content:space-between;align-items:center"><div style="font:400 9px/1.5 'Courier New',monospace;color:rgba(255,255,255,.4);letter-spacing:.04em">RESULTS GENERATED BY CARR-9000. FOR ENTERTAINMENT PURPOSES ONLY. ACCURACY NOT GUARANTEED. FEELINGS NOT CONSIDERED.</div><div style="font:700 9px/1 'Courier New',monospace;color:rgba(255,255,255,.25);letter-spacing:.1em">CARR-9000</div></div>
@@ -961,7 +1127,7 @@ function layoutE(data, imageDataUrl, ctx) {
 }
 
 // ─── RENDER MAGAZINE ─────────────────────────────────────────
-function renderResult(data, imageDataUrl) {
+function renderResult(data, images) {
   const badge = totalBadge(data.total_score);
   const badgeColor = isBeastMode ? '#e53935' : badge.color;
   const accentColor = isBeastMode ? '#e53935' : '#f5a623';
@@ -969,10 +1135,10 @@ function renderResult(data, imageDataUrl) {
   const issueNum = Math.floor(Math.random() * 900) + 100;
 
   const masthead = isBeastMode ? 'CARR-9000 BEAST QUARTERLY' : 'CARR-9000 AUTOMOTIVE QUARTERLY';
-  const ctx = { badge, badgeColor, accentColor, logoSrc, issueNum, masthead };
+  const ctx = { badge, badgeColor, accentColor, logoSrc, issueNum, masthead, darkMode: isArticleDarkMode };
 
   const layouts = [layoutA, layoutB, layoutC, layoutD, layoutE];
-  const html = layouts[Math.floor(Math.random() * layouts.length)](data, imageDataUrl, ctx);
+  const html = layouts[Math.floor(Math.random() * layouts.length)](data, images, ctx);
 
   const blob = new Blob([html], { type: 'text/html' });
   const blobUrl = URL.createObjectURL(blob);
@@ -1114,11 +1280,18 @@ document.getElementById('btn-share').addEventListener('click', async () => {
   }
 });
 
+// ─── DARK MODE TOGGLE ────────────────────────────────────────
+document.getElementById('btn-dark').addEventListener('click', () => {
+  isArticleDarkMode = !isArticleDarkMode;
+  document.getElementById('btn-dark').textContent = isArticleDarkMode ? '☀️ Light' : '🌙 Dark';
+  if (currentData && currentImages.length) renderResult(currentData, currentImages);
+});
+
 // ─── RESET ───────────────────────────────────────────────────
 document.getElementById('btn-reset').addEventListener('click', () => {
   currentData = null;
-  currentImageB64 = null;
-  currentImageMime = null;
+  currentImages = [];
+  pendingImages = [];
   currentCarName = 'the-vehicle';
 
   // Revoke old blob
@@ -1137,11 +1310,16 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   uploadSec.style.pointerEvents = 'auto';
   setTimeout(() => { uploadSec.style.opacity = '1'; }, 20);
 
-  // Reset file inputs
+  // Reset file inputs and thumbnails
   document.getElementById('file-input').value = '';
   document.getElementById('camera-input').value = '';
+  updateThumbs();
 
-  // Reset roast mode
+  // Reset dark mode
+  isArticleDarkMode = false;
+  document.getElementById('btn-dark').textContent = '🌙 Dark';
+
+  // Reset beast mode
   document.getElementById('beast-checkbox').checked = false;
   isBeastMode = false;
   document.body.classList.remove('beast-mode');
