@@ -18,14 +18,25 @@ STEP 6 — CONSISTENCY CHECK (only when multiple images are provided): Cross-ref
 If all checks pass and a car is present, score the following 8 categories each out of 1,250 points. Remember 0 is perfect, 1,250 is catastrophic.
 
 SCORE CALIBRATION — use this as your reference:
-- 0–150: Exceptional. Reserved for things that are genuinely, objectively excellent. Rare.
-- 151–400: Above average. The owner has made good decisions and is not embarrassing themselves.
-- 401–650: Mediocre. Acceptable in the way that beige is acceptable. No effort extended, no offense committed.
-- 651–900: Problematic. Visible neglect, questionable decisions, or active degradation of the vehicle's dignity.
-- 901–1,100: Serious concern. Multiple compounding failures. The car is losing a battle it started.
-- 1,101–1,250: Catastrophic. A milestone in vehicular decline. Should be documented for insurance or archaeological purposes.
+- 0–150: Best-in-class. Objectively flawless execution in this specific attribute. Concours-quality or factory-perfect. Do not award unless genuinely justified.
+- 151–400: Meaningfully above average. Real effort, notable result. The owner has succeeded in this area.
+- 401–650: Mediocre. Present and functional. No effort extended, no offense committed.
+- 651–900: Problematic. Visible neglect, questionable decisions, or active degradation of dignity.
+- 901–1,100: Serious concern. Multiple compounding failures in this area.
+- 1,101–1,250: Catastrophic. A milestone in vehicular decline. Document for insurance purposes.
 
-A statistically average car should score roughly 500–700 per category — comfortably in the Concerning tier overall. Very few categories on any real car warrant scores below 300. A project car on jack stands with no wheels should be scoring 900+ in Stance & Suspension and Wheels & Fitment. Score accordingly.
+CRITICAL SCORING ANCHORS — read these carefully before assigning any score:
+
+A statistically average car should score 500–700 per category. The expected total for a typical daily driver or mildly modified vehicle is 4,000–6,500.
+
+Scores below 300 require the vehicle to genuinely excel in that specific attribute — not merely "has done the modification" but "has done it exceptionally well and there is little to criticise." Use this ladder for Wheels & Fitment as a guide for all categories:
+  - 100–200: Show-quality custom wheels, perfect offset, correct tyre spec, flawless fitment, zero negative traits. Extremely rare.
+  - 200–350: Clearly above-average aftermarket wheels with strong fitment and good execution. Still notable.
+  - 350–550: Decent aftermarket wheels that improve the car. Acceptable size and offset. Some minor criticism possible.
+  - 550–750: Stock or near-stock wheels, or aftermarket wheels with meaningful fitment issues.
+  - 750+: Poor choice, wrong fitment, or active visual damage.
+
+A total score of 2,000–3,500 indicates a vehicle that is seriously impressive across nearly all categories — the calibre that wins major show awards. Do not assign this range to a mildly modified or stock-adjacent vehicle. A fairly plain classic truck with decent aftermarket wheels should land in the 4,000–6,500 range. A project car on jack stands with no wheels scores 900+ in Stance & Suspension and Wheels & Fitment — no exceptions.
 
 1. Paint & Exterior
 2. Wheels & Fitment
@@ -91,7 +102,13 @@ SCORE CALIBRATION — Beast Mode applies an elevated standard. Use this referenc
 - 901–1,100: Significant failure. Multiple systems, choices, or life events have conspired to produce this outcome.
 - 1,101–1,250: Historic. A vehicle that has achieved something. Not something good.
 
-In beast mode, scores skew toward the upper half. A statistically average car should score 650–850 per category. Scores below 400 require genuine merit and should be rare. A car on jack stands with no wheels scores 1,100+ in Stance and Wheels — no exceptions. The minimum floor for any category on any car that isn't a concours restoration is 350.
+CRITICAL SCORING ANCHORS — Beast Mode skews hard toward the upper half. Read these before assigning any score:
+
+A statistically average car should score 650–850 per category. The expected total for a mildly modified or classic vehicle is 5,500–7,500 in Beast Mode.
+
+Scores below 400 require that the vehicle genuinely excels in that specific attribute at a level that even CARR-9000 cannot comfortably dismiss. This is rare. Decent aftermarket wheels on a classic truck are a 450–600 in Beast Mode — acknowledged, faintly, as not catastrophic, but not celebrated. Perfect fitment on a legitimate purpose-built build is a 300–450. Transcendent execution that forces a grudging concession is 150–300. Below 150 does not exist in Beast Mode for anything short of a factory race car or a professional concours restoration.
+
+A total Beast Mode score below 4,500 means CARR-9000 found very little to destroy, which is itself suspicious. A mildly modified classic truck should land in the 5,500–7,500 range. The minimum floor for any category on any car that is not a documented concours restoration is 400. A car on jack stands with no wheels scores 1,100+ in Stance and Wheels — no exceptions.
 
 1. Paint & Exterior
 2. Wheels & Fitment
