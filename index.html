@@ -1189,6 +1189,8 @@ function layoutF(data, images, ctx) {
   const { badge, badgeColor, logoSrc, issueNum } = ctx;
   const bg = '#020202';
   const accent = '#f5a623';
+  // Derive logo-nobg.png URL from the standard logo src
+  const logoNoBgSrc = logoSrc.replace(/\/[^/?#]+(\?.*)?$/, '/logo-nobg.png');
 
   // Extract a punchy sentence from the story for cover flair
   const rawSentences = ((data.story || '').match(/[^.!?]+[.!?]+/g) || [])
@@ -1199,32 +1201,32 @@ function layoutF(data, images, ctx) {
 
   const today = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
 
-  // ── Photo collage ──────────────────────────────────────────
+  // ── Photo collage (positioned lower so logo dominates top) ──
   const n = images.length;
   let photoHtml = '';
 
   if (n === 1) {
     photoHtml = `
-      <div style="position:absolute;top:14px;left:14px;right:14px;bottom:14px;border:2px solid rgba(245,166,35,0.5);overflow:hidden">
+      <div style="position:absolute;top:10px;left:16px;right:16px;bottom:0;border:2px solid rgba(245,166,35,0.45);overflow:hidden">
         <img src="${images[0]}" style="width:100%;height:100%;object-fit:cover;display:block"/>
       </div>`;
   } else if (n === 2) {
     photoHtml = `
-      <div style="position:absolute;top:10px;left:10px;width:680px;height:570px;border:2px solid rgba(245,166,35,0.55);overflow:hidden;z-index:2">
+      <div style="position:absolute;top:10px;left:16px;width:650px;height:440px;border:2px solid rgba(245,166,35,0.5);overflow:hidden;z-index:2">
         <img src="${images[0]}" style="width:100%;height:100%;object-fit:cover;display:block"/>
       </div>
-      <div style="position:absolute;bottom:0;right:10px;width:350px;height:270px;border:2px solid rgba(245,166,35,0.4);overflow:hidden;z-index:3;box-shadow:-5px -5px 14px rgba(0,0,0,0.9)">
+      <div style="position:absolute;bottom:0;right:16px;width:320px;height:240px;border:2px solid rgba(245,166,35,0.35);overflow:hidden;z-index:3;box-shadow:-5px -5px 14px rgba(0,0,0,0.9)">
         <img src="${images[1]}" style="width:100%;height:100%;object-fit:cover;display:block"/>
       </div>`;
   } else {
     photoHtml = `
-      <div style="position:absolute;top:10px;left:10px;width:640px;height:520px;border:2px solid rgba(245,166,35,0.55);overflow:hidden;z-index:2">
+      <div style="position:absolute;top:10px;left:16px;width:600px;height:410px;border:2px solid rgba(245,166,35,0.5);overflow:hidden;z-index:2">
         <img src="${images[0]}" style="width:100%;height:100%;object-fit:cover;display:block"/>
       </div>
-      <div style="position:absolute;top:20px;right:10px;width:270px;height:220px;border:2px solid rgba(245,166,35,0.3);overflow:hidden;z-index:1">
+      <div style="position:absolute;top:20px;right:16px;width:255px;height:195px;border:2px solid rgba(245,166,35,0.28);overflow:hidden;z-index:1">
         <img src="${images[2]}" style="width:100%;height:100%;object-fit:cover;display:block"/>
       </div>
-      <div style="position:absolute;bottom:0;right:40px;width:360px;height:280px;border:2px solid rgba(245,166,35,0.45);overflow:hidden;z-index:3;box-shadow:-5px -5px 14px rgba(0,0,0,0.9)">
+      <div style="position:absolute;bottom:0;right:40px;width:330px;height:250px;border:2px solid rgba(245,166,35,0.4);overflow:hidden;z-index:3;box-shadow:-5px -5px 14px rgba(0,0,0,0.9)">
         <img src="${images[1]}" style="width:100%;height:100%;object-fit:cover;display:block"/>
       </div>`;
   }
@@ -1234,31 +1236,40 @@ function layoutF(data, images, ctx) {
 body{background:${bg};color:#fff;font-family:Oswald,sans-serif;width:900px;min-width:900px}
 </style></head><body>
 
-<!-- Header -->
-<div style="display:flex;align-items:center;justify-content:space-between;padding:18px 28px 14px">
-  <img src="${logoSrc}" style="height:50px;max-width:220px;object-fit:contain;object-position:left;display:block"/>
-  <div style="text-align:right">
-    <div style="font:300 8.5px/1 Oswald,sans-serif;color:rgba(255,255,255,0.35);letter-spacing:.2em;text-transform:uppercase">${today}</div>
-    <div style="font:300 7.5px/1 Oswald,sans-serif;color:rgba(255,255,255,0.2);letter-spacing:.14em;text-transform:uppercase;margin-top:4px">Issue ${issueNum} · Automotive Quarterly</div>
+<!-- ── HERO: large logo overlapping photo, car name text at bottom of photo ── -->
+<div style="position:relative;height:720px;background:${bg};overflow:hidden">
+
+  <!-- Photo zone — starts at 130px so the large logo sits above it unobscured -->
+  <div style="position:absolute;top:130px;left:0;right:0;height:590px">
+    ${photoHtml}
+    <!-- Gradient fade to black at bottom -->
+    <div style="position:absolute;bottom:0;left:0;right:0;height:260px;background:linear-gradient(transparent,${bg});z-index:20;pointer-events:none"></div>
   </div>
-</div>
-<div style="height:1px;background:linear-gradient(90deg,transparent 5%,rgba(245,166,35,0.45) 30%,rgba(245,166,35,0.45) 70%,transparent 95%);margin:0 28px"></div>
 
-<!-- Photo zone (~2/3 of cover height) -->
-<div style="position:relative;height:640px;background:${bg}">
-  ${photoHtml}
-  <!-- Gradient fade into black so text sits cleanly below -->
-  <div style="position:absolute;bottom:0;left:0;right:0;height:200px;background:linear-gradient(transparent,${bg});z-index:10;pointer-events:none"></div>
-</div>
+  <!-- Issue / date — top right, subtle -->
+  <div style="position:absolute;top:22px;right:28px;text-align:right;z-index:30">
+    <div style="font:300 8.5px/1 Oswald,sans-serif;color:rgba(255,255,255,0.3);letter-spacing:.2em;text-transform:uppercase">${today}</div>
+    <div style="font:300 7.5px/1 Oswald,sans-serif;color:rgba(255,255,255,0.18);letter-spacing:.14em;text-transform:uppercase;margin-top:4px">Issue ${issueNum} · Automotive Quarterly</div>
+  </div>
 
-<!-- Car name — overlaps gradient fade -->
-<div style="padding:0 32px 18px;margin-top:-60px;position:relative;z-index:20">
-  <div style="font:700 78px/1.0 'Dancing Script',cursive;color:#fff;text-shadow:0 2px 24px rgba(245,166,35,0.35),0 0 60px rgba(245,166,35,0.08)">${data.car_name}</div>
-  <div style="height:2px;background:linear-gradient(90deg,${accent} 0%,rgba(245,166,35,0.2) 60%,transparent 100%);margin-top:8px;width:55%"></div>
+  <!-- LARGE LOGO (no-bg) — top left, overlaps photo below it -->
+  <div style="position:absolute;top:16px;left:24px;z-index:40">
+    <img src="${logoNoBgSrc}" style="height:170px;display:block;"/>
+  </div>
+
+  <!-- Thin gold accent line just below the logo -->
+  <div style="position:absolute;top:202px;left:24px;right:24px;height:1px;background:linear-gradient(90deg,rgba(245,166,35,0.55) 0%,rgba(245,166,35,0.15) 55%,transparent 100%);z-index:35"></div>
+
+  <!-- Car name — sits over the gradient fade at the bottom of the photo -->
+  <div style="position:absolute;bottom:32px;left:32px;right:32px;z-index:30">
+    <div style="font:700 80px/1.0 'Dancing Script',cursive;color:#fff;text-shadow:0 2px 28px rgba(245,166,35,0.45),0 0 70px rgba(245,166,35,0.12)">${data.car_name}</div>
+    <div style="height:2px;background:linear-gradient(90deg,${accent} 0%,rgba(245,166,35,0.18) 55%,transparent 100%);margin-top:8px;width:52%"></div>
+  </div>
+
 </div>
 
 <!-- Score + verdict -->
-<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 32px 22px">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:26px 32px 22px">
   <div>
     <div style="font:300 9px/1 Oswald,sans-serif;color:rgba(255,255,255,0.3);letter-spacing:.25em;text-transform:uppercase;margin-bottom:6px">CARR-9000 Score</div>
     <div style="font:700 60px/1 Oswald,sans-serif;color:${badgeColor};letter-spacing:-.02em">${data.total_score.toLocaleString()}<span style="font:300 15px/1 Oswald,sans-serif;color:rgba(255,255,255,0.3);margin-left:5px">/ 10,000</span></div>
