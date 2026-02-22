@@ -2037,16 +2037,20 @@ async function openLeaderboard() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const manifest = await res.json();
 
-    // Build flat entry list across all 4 sections
+    // Build flat entry list across all 4 sections — deduplicate by ID so the
+    // same submission never appears more than once regardless of manifest state
     lbEntries = [];
+    const seenIds = new Set();
     const sections = [
-      { data: manifest.regular?.top10  || [], label: 'HALL OF FAME' },
+      { data: manifest.regular?.top10    || [], label: 'HALL OF FAME' },
       { data: manifest.regular?.bottom10 || [], label: 'HALL OF SHAME' },
-      { data: manifest.beast?.top10   || [], label: 'BEAST HALL OF FAME' },
-      { data: manifest.beast?.bottom10 || [], label: 'BEAST HALL OF SHAME' },
+      { data: manifest.beast?.top10      || [], label: 'BEAST HALL OF FAME' },
+      { data: manifest.beast?.bottom10   || [], label: 'BEAST HALL OF SHAME' },
     ];
     for (const sec of sections) {
       for (const entry of sec.data) {
+        if (seenIds.has(entry.id)) continue;
+        seenIds.add(entry.id);
         lbEntries.push({ ...entry, sectionLabel: sec.label });
       }
     }
