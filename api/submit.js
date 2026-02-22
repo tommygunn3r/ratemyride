@@ -3,6 +3,10 @@
 // Body: { result, images: [{data, mimeType}], beastMode }
 // Stores the result in Vercel Blob and updates the manifest.
 
+import { createHash } from 'crypto';
+
+const RATE_LIMIT_HOURS = 24;
+
 function badgeLabel(total) {
   if (total <= 2500) return 'Exceptional Specimen';
   if (total <= 5000) return 'Adequate';
@@ -10,8 +14,36 @@ function badgeLabel(total) {
   return 'A Cry For Help';
 }
 
-async function storeResult(result, images, beastMode) {
-  const { put, list, del } = await import('@vercel/blob');
+function getClientIp(req) {
+  const fwd = req.headers['x-forwarded-for'];
+  return fwd ? fwd.split(',')[0].trim() : (req.socket?.remoteAddress || 'unknown');
+}
+
+// Store a short hash of the IP rather than the raw address
+function hashIp(ip) {
+  return createHash('sha256').update(ip).digest('hex').slice(0, 16);
+}
+
+async function readManifest(list) {
+  const empty = {
+    regular:    { top10: [], bottom10: [] },
+    beast:      { top10: [], bottom10: [] },
+    recent_ips: []
+  };
+  const { blobs } = await list({ prefix: 'leaderboard/manifest.json' });
+  if (blobs.length === 0) return empty;
+  try {
+    const res = await fetch(`${blobs[0].url}?t=${Date.now()}`);
+    const m = await res.json();
+    if (!m.recent_ips) m.recent_ips = [];
+    return m;
+  } catch {
+    return empty;
+  }
+}
+
+async function storeResult(result, images, beastMode, ipHash, manifest) {
+  const { put, del } = await import('@vercel/blob');
 
   const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
@@ -41,19 +73,6 @@ async function storeResult(result, images, beastMode) {
     addRandomSuffix: false
   });
 
-  // Read current manifest
-  const { blobs } = await list({ prefix: 'leaderboard/manifest.json' });
-  let manifest = {
-    regular: { top10: [], bottom10: [] },
-    beast:   { top10: [], bottom10: [] }
-  };
-  if (blobs.length > 0) {
-    try {
-      const res = await fetch(`${blobs[0].url}?t=${Date.now()}`);
-      manifest = await res.json();
-    } catch { /* start fresh */ }
-  }
-
   const board = beastMode ? manifest.beast : manifest.regular;
   const entry = {
     id,
@@ -77,7 +96,7 @@ async function storeResult(result, images, beastMode) {
   board.bottom10.sort((a, b) => b.score - a.score);
   const droppedFromBottom = board.bottom10.length > 10 ? board.bottom10.splice(10) : [];
 
-  // Clean up blobs for entries knocked off both lists
+  // Delete blobs for entries knocked off both lists
   const activeIds = new Set([
     ...board.top10.map(e => e.id),
     ...board.bottom10.map(e => e.id)
@@ -91,6 +110,12 @@ async function storeResult(result, images, beastMode) {
     }
   }
 
+  // Prune expired IP entries, then record this submission
+  const cutoff = Date.now() - RATE_LIMIT_HOURS * 60 * 60 * 1000;
+  manifest.recent_ips = (manifest.recent_ips || [])
+    .filter(e => new Date(e.ts).getTime() > cutoff);
+  manifest.recent_ips.push({ ip: ipHash, ts: new Date().toISOString(), id });
+
   // Write updated manifest
   await put('leaderboard/manifest.json', JSON.stringify(manifest), {
     access: 'public',
@@ -98,7 +123,6 @@ async function storeResult(result, images, beastMode) {
     addRandomSuffix: false
   });
 
-  // Return which section this entry landed in
   const inTop10    = board.top10.some(e => e.id === id);
   const inBottom10 = board.bottom10.some(e => e.id === id);
   return { id, inTop10, inBottom10 };
@@ -122,13 +146,25 @@ export default async function handler(req, res) {
   if (!result || !images || !Array.isArray(images) || images.length === 0) {
     return res.status(400).json({ error: 'Missing required fields.' });
   }
-
   if (result.valid !== true) {
     return res.status(400).json({ error: 'Only valid results can be submitted.' });
   }
 
+  const { list } = await import('@vercel/blob');
+  const ipHash   = hashIp(getClientIp(req));
+  const manifest = await readManifest(list);
+
+  // Rate limit — one submission per IP per RATE_LIMIT_HOURS
+  const cutoff = Date.now() - RATE_LIMIT_HOURS * 60 * 60 * 1000;
+  const recent = (manifest.recent_ips || []).filter(e => new Date(e.ts).getTime() > cutoff);
+  if (recent.some(e => e.ip === ipHash)) {
+    return res.status(429).json({
+      error: `One submission per ${RATE_LIMIT_HOURS} hours. CARR-9000 has already rendered its verdict on you today. Come back tomorrow.`
+    });
+  }
+
   try {
-    const stored = await storeResult(result, images, !!beastMode);
+    const stored = await storeResult(result, images, !!beastMode, ipHash, manifest);
     return res.status(200).json({ success: true, ...stored });
   } catch (err) {
     console.error('Submit error:', err);

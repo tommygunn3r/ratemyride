@@ -1979,6 +1979,12 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+      if (res.status === 429) {
+        // Rate limited — show message, keep button locked
+        showToast(err.error || 'One submission per 24 hours.');
+        btn.textContent = 'Already Judged Today';
+        return;
+      }
       throw new Error(err.error || `HTTP ${res.status}`);
     }
 
