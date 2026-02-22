@@ -1932,10 +1932,14 @@ document.getElementById('btn-reset').addEventListener('click', () => {
 function doesQualify(score, board) {
   const top10    = board.top10    || [];
   const bottom10 = board.bottom10 || [];
-  // top10 sorted ASC: top10[last] is the highest (worst) score in the list
-  if (top10.length < 10    || score < top10[top10.length - 1].score)    return true;
-  // bottom10 sorted DESC: bottom10[last] is the lowest (best) score in the list
-  if (bottom10.length < 10 || score > bottom10[bottom10.length - 1].score) return true;
+  const total    = top10.length + bottom10.length;
+  // Pool has room — every entry gets a spot in either the top or bottom half
+  if (total < 20) return true;
+  // Pool is full (20 unique entries) — only extreme scores displace an existing entry
+  // top10 sorted ASC: top10[last] is the worst-of-the-best
+  if (score < top10[top10.length - 1].score) return true;
+  // bottom10 sorted DESC: bottom10[last] is the best-of-the-worst
+  if (score > bottom10[bottom10.length - 1].score) return true;
   return false;
 }
 

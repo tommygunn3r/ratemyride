@@ -74,7 +74,7 @@ async function storeResult(result, images, beastMode, ipHash, manifest) {
   });
 
   const board = beastMode ? manifest.beast : manifest.regular;
-  const entry = {
+  const newEntry = {
     id,
     score: result.total_score,
     car_name: result.car_name,
@@ -86,24 +86,29 @@ async function storeResult(result, images, beastMode, ipHash, manifest) {
     result_url: resultUrl
   };
 
-  // Top 10 — lowest scores (best cars)
-  board.top10.push(entry);
-  board.top10.sort((a, b) => a.score - b.score);
-  const droppedFromTop = board.top10.length > 10 ? board.top10.splice(10) : [];
+  // Build a unified pool of all unique entries (no duplicates between lists)
+  const pool = new Map();
+  [...board.top10, ...board.bottom10].forEach(e => pool.set(e.id, e));
+  pool.set(id, newEntry);
 
-  // Bottom 10 — highest scores (worst cars)
-  board.bottom10.push(entry);
-  board.bottom10.sort((a, b) => b.score - a.score);
-  const droppedFromBottom = board.bottom10.length > 10 ? board.bottom10.splice(10) : [];
+  // Split pool evenly: best half → top10, worst half → bottom10 (each capped at 10)
+  // This guarantees no entry appears in both lists regardless of pool size
+  const sorted = [...pool.values()].sort((a, b) => a.score - b.score);
+  const total   = sorted.length;
+  const topCount = Math.min(10, Math.ceil(total / 2));
+  const botCount = Math.min(10, Math.floor(total / 2));
 
-  // Delete blobs for entries knocked off both lists
+  board.top10    = sorted.slice(0, topCount);
+  board.bottom10 = sorted.slice(total - botCount).reverse(); // sorted DESC (worst first)
+
+  // Delete blobs for any entry no longer in either list (middle entries that fell off)
   const activeIds = new Set([
     ...board.top10.map(e => e.id),
     ...board.bottom10.map(e => e.id)
   ]);
-  for (const dropped of [...droppedFromTop, ...droppedFromBottom]) {
-    if (!activeIds.has(dropped.id)) {
-      const toDelete = [...(dropped.image_urls || []), dropped.result_url].filter(Boolean);
+  for (const e of sorted) {
+    if (!activeIds.has(e.id)) {
+      const toDelete = [...(e.image_urls || []), e.result_url].filter(Boolean);
       if (toDelete.length > 0) {
         try { await del(toDelete); } catch { /* non-fatal */ }
       }
