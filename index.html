@@ -1085,6 +1085,29 @@ function compressImage(dataUrl, callback) {
   img.src = dataUrl;
 }
 
+// ─── IMAGE CROP ───────────────────────────────────────────────
+// crop: {x, y, w, h} as fractions 0–1, or null for full image
+function cropImage(dataUrl, crop) {
+  return new Promise(resolve => {
+    if (!crop || crop.w <= 0 || crop.h <= 0) { resolve(dataUrl); return; }
+    const img = new Image();
+    img.onload = () => {
+      const sx = Math.round(Math.max(0, crop.x) * img.width);
+      const sy = Math.round(Math.max(0, crop.y) * img.height);
+      const sw = Math.round(Math.min(1 - crop.x, crop.w) * img.width);
+      const sh = Math.round(Math.min(1 - crop.y, crop.h) * img.height);
+      if (sw < 4 || sh < 4) { resolve(dataUrl); return; }
+      const canvas = document.createElement('canvas');
+      canvas.width = sw;
+      canvas.height = sh;
+      canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      resolve(canvas.toDataURL('image/jpeg', 0.92));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 // ─── SUBMIT ──────────────────────────────────────────────────
 async function submitImage() {
   if (!pendingImages.length) return;
@@ -1139,11 +1162,22 @@ async function submitImage() {
     const selIdx = (Array.isArray(data.selected_images) && data.selected_images.length > 0)
       ? data.selected_images.slice(0, 4).filter(i => i >= 0 && i < pendingImages.length)
       : pendingImages.map((_, i) => i).slice(0, 4);
-    currentImages = selIdx.map(i => allDataUrls[i]);
+    const crops = Array.isArray(data.image_crops) ? data.image_crops : [];
+
+    // Apply AI crop hints via canvas
+    const croppedDataUrls = await Promise.all(
+      selIdx.map((imgIdx, j) => cropImage(allDataUrls[imgIdx], crops[j] || null))
+    );
+
+    currentImages = croppedDataUrls;
     currentCaptions = Array.isArray(data.image_captions)
       ? selIdx.map((_, j) => data.image_captions[j] || '')
       : [];
-    currentSubmitImages = selIdx.map(i => ({ data: pendingImages[i].base64, mimeType: pendingImages[i].mimeType }));
+    // Submit cropped versions to leaderboard so they match what's displayed
+    currentSubmitImages = croppedDataUrls.map(dataUrl => ({
+      data: dataUrl.split(',')[1],
+      mimeType: 'image/jpeg'
+    }));
     currentCarName = (data.car_name || 'the-vehicle').toLowerCase().replace(/[^a-z0-9]+/g, '-');
     currentLayoutIdx = -1;  // pick fresh random layout for new submission
     renderResult(data, currentImages);

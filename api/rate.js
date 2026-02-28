@@ -55,7 +55,9 @@ Then write a 3 paragraph fictional biography of the car in third person. The car
 
 Also provide a single pull quote — the single most memorable, funny, or devastating sentence from the story. This will be featured prominently in the layout.
 
-IMAGE SELECTION: Examine all submitted images and select up to 4 that best represent the vehicle — choose the images that show the most relevant detail, the most telling condition, or the most useful combination of angles. Return their 0-based indices (the first submitted image is index 0) as selected_images, ordered from most to least important. Then write a short, deadpan magazine-style caption (6–10 words) for each selected image — the kind of clipped, clinical observation a forensic automotive examiner would attach to evidence. Return these captions as image_captions, in the same order as selected_images.
+IMAGE SELECTION & CROPPING: Examine all submitted images and select up to 4 that best represent the vehicle — choose the images that show the most relevant detail, the most telling condition, or the most useful combination of angles. Return their 0-based indices (the first submitted image is index 0) as selected_images, ordered from most to least important. Then write a short, deadpan magazine-style caption (6–10 words) for each selected image — the kind of clipped, clinical observation a forensic automotive examiner would attach to evidence. Return these captions as image_captions, in the same order as selected_images.
+
+For each selected image, optionally return a crop region as image_crops — an array parallel to selected_images. Each entry is either null (use the full image) or an object {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0} where x/y are the top-left corner and w/h are the width/height, all as fractions of the original image (0.0–1.0). Only crop when it meaningfully improves the composition — to eliminate dead space, tighten on the most relevant detail, or reframe a shot that has a better image inside it. Do not crop for the sake of cropping.
 
 Return everything as valid JSON in this exact structure:
 
@@ -65,6 +67,7 @@ Return everything as valid JSON in this exact structure:
   "pull_quote": "",
   "selected_images": [0],
   "image_captions": [""],
+  "image_crops": [null],
   "categories": [
     {"name": "Paint & Exterior", "score": 0, "reasoning": ""},
     {"name": "Wheels & Fitment", "score": 0, "reasoning": ""},
@@ -138,7 +141,9 @@ Then write a 3 paragraph fictional biography of the car in third person. The car
 
 Also provide a single pull quote — the single most savage, memorable, potentially profane line from the story. This will be displayed prominently. Make it a line that would make someone's mother uncomfortable.
 
-IMAGE SELECTION: Examine all submitted images and select up to 4 that best represent the vehicle's condition, failures, and most incriminating details. Return their 0-based indices (the first submitted image is index 0) as selected_images, ordered from most damning to least. Then write a short, savage photo caption (6–10 words, profanity welcome when earned) for each selected image — the kind of clipped, contemptuous label CARR-9000 would stamp on exhibit evidence. Return these captions as image_captions, in the same order as selected_images.
+IMAGE SELECTION & CROPPING: Examine all submitted images and select up to 4 that best represent the vehicle's condition, failures, and most incriminating details. Return their 0-based indices (the first submitted image is index 0) as selected_images, ordered from most damning to least. Then write a short, savage photo caption (6–10 words, profanity welcome when earned) for each selected image — the kind of clipped, contemptuous label CARR-9000 would stamp on exhibit evidence. Return these captions as image_captions, in the same order as selected_images.
+
+For each selected image, optionally return a crop region as image_crops — an array parallel to selected_images. Each entry is either null (use the full image) or an object {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0} where x/y are the top-left corner and w/h are the width/height, all as fractions of the original image (0.0–1.0). Crop aggressively when it exposes the worst detail — zoom in on the rust, the terrible bodywork, the sad excuse for a modification. But only crop when it genuinely makes the image more damning. Do not crop for the sake of it.
 
 Return everything as valid JSON in this exact structure:
 
@@ -148,6 +153,7 @@ Return everything as valid JSON in this exact structure:
   "pull_quote": "",
   "selected_images": [0],
   "image_captions": [""],
+  "image_crops": [null],
   "categories": [
     {"name": "Paint & Exterior", "score": 0, "reasoning": ""},
     {"name": "Wheels & Fitment", "score": 0, "reasoning": ""},
