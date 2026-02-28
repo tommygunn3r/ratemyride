@@ -781,7 +781,7 @@
       <div id="beast-toggle-wrap">
         <label for="beast-checkbox" style="display:flex;align-items:center;gap:12px;cursor:pointer">
           <div class="toggle-track"><div class="toggle-thumb"></div></div>
-          <span id="toggle-label-text">BEAST MODE</span>
+          <span id="toggle-label-text">SHITBOX EDITION</span>
         </label>
       </div>
     </div>
@@ -1684,7 +1684,7 @@ function renderResult(data, images) {
   const accentColor = isBeastMode ? '#e53935' : '#f5a623';
   const logoSrc = document.querySelector('#header img').src;
 
-  const masthead = isBeastMode ? 'CARR-9000 BEAST QUARTERLY' : 'CARR-9000 AUTOMOTIVE QUARTERLY';
+  const masthead = isBeastMode ? 'CARR-9000 SHITBOX QUARTERLY' : 'CARR-9000 AUTOMOTIVE QUARTERLY';
 
   const layouts = [layoutA, layoutB, layoutC, layoutD, layoutE, layoutF];
 
@@ -2044,8 +2044,8 @@ async function openLeaderboard() {
     const sections = [
       { data: manifest.regular?.top10    || [], label: 'HALL OF FAME' },
       { data: manifest.regular?.bottom10 || [], label: 'HALL OF SHAME' },
-      { data: manifest.beast?.top10      || [], label: 'BEAST HALL OF FAME' },
-      { data: manifest.beast?.bottom10   || [], label: 'BEAST HALL OF SHAME' },
+      { data: manifest.beast?.top10      || [], label: 'SHITBOX HALL OF FAME' },
+      { data: manifest.beast?.bottom10   || [], label: 'SHITBOX HALL OF SHAME' },
     ];
     for (const sec of sections) {
       for (const entry of sec.data) {
@@ -2120,7 +2120,7 @@ function renderLbEntry(data, entry) {
   const badgeColor = isBeast ? '#e53935' : badge.color;
   const accentColor = isBeast ? '#e53935' : '#f5a623';
   const logoSrc = document.querySelector('#header img').src;
-  const masthead = isBeast ? 'CARR-9000 BEAST QUARTERLY' : 'CARR-9000 AUTOMOTIVE QUARTERLY';
+  const masthead = isBeast ? 'CARR-9000 SHITBOX QUARTERLY' : 'CARR-9000 AUTOMOTIVE QUARTERLY';
 
   const ctx = { badge, badgeColor, accentColor, logoSrc, issueNum, masthead, darkMode: false };
 
