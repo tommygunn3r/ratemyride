@@ -55,12 +55,16 @@ Then write a 3 paragraph fictional biography of the car in third person. The car
 
 Also provide a single pull quote — the single most memorable, funny, or devastating sentence from the story. This will be featured prominently in the layout.
 
+IMAGE SELECTION: Examine all submitted images and select up to 4 that best represent the vehicle — choose the images that show the most relevant detail, the most telling condition, or the most useful combination of angles. Return their 0-based indices (the first submitted image is index 0) as selected_images, ordered from most to least important. Then write a short, deadpan magazine-style caption (6–10 words) for each selected image — the kind of clipped, clinical observation a forensic automotive examiner would attach to evidence. Return these captions as image_captions, in the same order as selected_images.
+
 Return everything as valid JSON in this exact structure:
 
 {
   "valid": true,
   "car_name": "",
   "pull_quote": "",
+  "selected_images": [0],
+  "image_captions": [""],
   "categories": [
     {"name": "Paint & Exterior", "score": 0, "reasoning": ""},
     {"name": "Wheels & Fitment", "score": 0, "reasoning": ""},
@@ -134,12 +138,16 @@ Then write a 3 paragraph fictional biography of the car in third person. The car
 
 Also provide a single pull quote — the single most savage, memorable, potentially profane line from the story. This will be displayed prominently. Make it a line that would make someone's mother uncomfortable.
 
+IMAGE SELECTION: Examine all submitted images and select up to 4 that best represent the vehicle's condition, failures, and most incriminating details. Return their 0-based indices (the first submitted image is index 0) as selected_images, ordered from most damning to least. Then write a short, savage photo caption (6–10 words, profanity welcome when earned) for each selected image — the kind of clipped, contemptuous label CARR-9000 would stamp on exhibit evidence. Return these captions as image_captions, in the same order as selected_images.
+
 Return everything as valid JSON in this exact structure:
 
 {
   "valid": true,
   "car_name": "",
   "pull_quote": "",
+  "selected_images": [0],
+  "image_captions": [""],
   "categories": [
     {"name": "Paint & Exterior", "score": 0, "reasoning": ""},
     {"name": "Wheels & Fitment", "score": 0, "reasoning": ""},
@@ -160,7 +168,7 @@ Return only valid JSON. No markdown, no code fences, no preamble.`;
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '20mb'
+      sizeLimit: '40mb'
     }
   }
 };

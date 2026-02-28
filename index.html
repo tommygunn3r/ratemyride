@@ -870,6 +870,7 @@ let currentCarName = 'the-vehicle';
 let isBeastMode = false;
 let pendingImages = [];      // [{base64, mimeType, dataUrl}] pre-submit
 let currentImages = [];      // [dataUrl, ...] post-submit, for re-render
+let currentCaptions = [];   // [string, ...] AI-assigned captions, parallel to currentImages
 let isArticleDarkMode = false;
 let currentLayoutIdx = -1;  // -1 = pick random on next render
 let currentIssueNum = 100;  // stable per submission
@@ -988,7 +989,7 @@ document.getElementById('btn-rate').addEventListener('click', () => {
 });
 
 // ─── IMAGE QUEUE ──────────────────────────────────────────────
-const MAX_IMAGES = 3;
+const MAX_IMAGES = 10;
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
 function addImages(fileList, fromCamera = false) {
@@ -1125,14 +1126,24 @@ async function submitImage() {
 
     if (data.valid === false) {
       currentImages = pendingImages.map(img => img.dataUrl);
+      currentCaptions = [];
       currentCarName = 'rejection';
       showRejection(data, currentImages);
       return;
     }
 
     currentData = data;
-    currentImages = pendingImages.map(img => img.dataUrl);
-    currentSubmitImages = pendingImages.map(img => ({ data: img.base64, mimeType: img.mimeType }));
+
+    // Apply AI image selection: pick up to 4 images by 0-based index
+    const allDataUrls = pendingImages.map(img => img.dataUrl);
+    const selIdx = (Array.isArray(data.selected_images) && data.selected_images.length > 0)
+      ? data.selected_images.slice(0, 4).filter(i => i >= 0 && i < pendingImages.length)
+      : pendingImages.map((_, i) => i).slice(0, 4);
+    currentImages = selIdx.map(i => allDataUrls[i]);
+    currentCaptions = Array.isArray(data.image_captions)
+      ? selIdx.map((_, j) => data.image_captions[j] || '')
+      : [];
+    currentSubmitImages = selIdx.map(i => ({ data: pendingImages[i].base64, mimeType: pendingImages[i].mimeType }));
     currentCarName = (data.car_name || 'the-vehicle').toLowerCase().replace(/[^a-z0-9]+/g, '-');
     currentLayoutIdx = -1;  // pick fresh random layout for new submission
     renderResult(data, currentImages);
@@ -1187,14 +1198,17 @@ const FONTS_COVER = `<link rel="preconnect" href="https://fonts.googleapis.com"/
 const FONTS_REJECTION = `<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Playfair+Display:ital,wght@0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>`;
 
 // ─── EXTRA PHOTOS STRIP HELPER ───────────────────────────────
-function extraPhotos(images, fromIdx, borderColor) {
+function extraPhotos(images, fromIdx, borderColor, captions) {
   const extras = images.slice(fromIdx).filter(Boolean);
   if (!extras.length) return '';
-  return `<div style="display:flex;border-top:1px solid ${borderColor};background:#111">${extras.map(src=>`<div style="flex:1;line-height:0"><img src="${src}" style="width:100%;display:block"/></div>`).join('')}</div>`;
+  return `<div style="display:flex;border-top:1px solid ${borderColor};background:#111">${extras.map((src, i) => {
+    const cap = captions && captions[fromIdx + i] ? `<div style="padding:4px 8px 5px;font:400 9px/1.4 Inter,sans-serif;color:rgba(255,255,255,.42);letter-spacing:.03em;background:#0a0a0a;border-top:1px solid rgba(255,255,255,.05)">${captions[fromIdx + i]}</div>` : '';
+    return `<div style="flex:1;line-height:0"><img src="${src}" style="width:100%;display:block"/>${cap}</div>`;
+  }).join('')}</div>`;
 }
 
 // ─── LAYOUT A — Classic Editorial ────────────────────────────
-function layoutA(data, images, ctx) {
+function layoutA(data, images, ctx, captions = []) {
   const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead, darkMode: dm } = ctx;
   const bg = dm?'#111':'#fafaf8', text = dm?'#e8e8e8':'#222', dimT = dm?'#aaa':'#555';
   const border = dm?'rgba(255,255,255,.1)':'#e0e0e0', sideBg = dm?'#1a1a1a':'#f0f0ee';
@@ -1211,7 +1225,7 @@ function layoutA(data, images, ctx) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:${bg};color:${text};font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
 <div style="background:#111;color:#fff;padding:14px 28px;display:flex;align-items:center;justify-content:space-between"><img src="${logoSrc}" style="height:34px"/><div style="font:500 10px/1.6 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.6);text-align:right">Vol. 1 &nbsp;•&nbsp; Issue ${issueNum}<br/>${masthead}</div></div>
 <div style="height:2px;background:linear-gradient(90deg,${accentColor},${accentColor}cc)"></div>
-<div style="position:relative;width:100%;background:#1a1a1a;line-height:0"><img src="${images[0]}" style="width:100%;display:block"/><div style="position:absolute;bottom:0;left:0;right:0;height:120px;background:linear-gradient(transparent,${bg})"></div></div>
+<div style="position:relative;width:100%;background:#1a1a1a;line-height:0"><img src="${images[0]}" style="width:100%;display:block"/><div style="position:absolute;bottom:0;left:0;right:0;height:120px;background:linear-gradient(transparent,${bg})"></div></div>${captions[0]?`<div style="padding:4px 12px 5px;font:400 9px/1.4 Inter,sans-serif;color:rgba(255,255,255,.42);letter-spacing:.03em;background:#0d0d0d;border-bottom:1px solid rgba(255,255,255,.07)">${captions[0]}</div>`:''}
 <div style="padding:28px 28px 20px;position:relative;border-bottom:1px solid ${border}">
   <div style="position:absolute;top:24px;right:28px;width:90px;height:90px;border-radius:50%;border:3px solid ${badgeColor};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
     <div style="font:900 16px/1 'Playfair Display',serif;color:${badgeColor}">${data.total_score.toLocaleString()}</div>
@@ -1232,13 +1246,13 @@ function layoutA(data, images, ctx) {
     </div>
   </div>
 </div>
-${extraPhotos(images, 1, border)}
+${extraPhotos(images, 1, border, captions)}
 <div style="background:#111;color:rgba(255,255,255,.5);padding:14px 28px;display:flex;align-items:center;justify-content:space-between"><div style="font:400 9px/1.6 Inter,sans-serif;letter-spacing:.04em">Results generated by CARR-9000. For entertainment purposes only. Accuracy not guaranteed. Feelings not considered.</div><div style="font:700 12px/1 'Playfair Display',serif;color:rgba(255,255,255,.3);font-style:italic">CARR-9000</div></div>
 </body></html>`;
 }
 
 // ─── LAYOUT B — Full Bleed Cover ──────────────────────────────
-function layoutB(data, images, ctx) {
+function layoutB(data, images, ctx, captions = []) {
   const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead, darkMode: dm } = ctx;
   const bodyBg = dm?'#0a0a0a':'#0d0d0d', sideBg = dm?'#0a0a0a':'#111';
   const storyC = dm?'#bbb':'#ddd';
@@ -1280,13 +1294,13 @@ function layoutB(data, images, ctx) {
     </div>
   </div>
 </div>
-${extraPhotos(images, 1, 'rgba(255,255,255,.08)')}
+${extraPhotos(images, 1, 'rgba(255,255,255,.08)', captions)}
 <div style="background:#0a0a0a;padding:12px 28px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.06)"><div style="font:400 9px/1.5 Inter,sans-serif;color:rgba(255,255,255,.3);letter-spacing:.04em">Results generated by CARR-9000. For entertainment purposes only. Feelings not considered.</div><div style="font:700 10px/1 'Playfair Display',serif;color:rgba(255,255,255,.2);font-style:italic">CARR-9000</div></div>
 </body></html>`;
 }
 
 // ─── LAYOUT C — Centerfold ────────────────────────────────────
-function layoutC(data, images, ctx) {
+function layoutC(data, images, ctx, captions = []) {
   const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead, darkMode: dm } = ctx;
   const bg = dm?'#111':'#fff', text = dm?'#ccc':'#222', border = dm?'rgba(255,255,255,.1)':'#e0e0e0';
   const tileBg = dm?'#1a1a1a':'#f5f5f5', titleC = dm?'#fff':'#0a0a0a', scoreC = dm?'rgba(255,255,255,.35)':'#999';
@@ -1319,13 +1333,13 @@ function layoutC(data, images, ctx) {
   </div>
 </div>
 <div style="display:flex;padding:20px 24px 28px;gap:24px"><div style="flex:1">${col1}</div><div style="flex:1;border-left:1px solid ${border};padding-left:24px">${col2}</div></div>
-${extraPhotos(images, 1, border)}
+${extraPhotos(images, 1, border, captions)}
 <div style="background:#111;padding:12px 24px;display:flex;justify-content:space-between;align-items:center"><div style="font:400 9px/1.5 Inter,sans-serif;color:rgba(255,255,255,.4)">Results generated by CARR-9000. For entertainment purposes only. Feelings not considered.</div><div style="font:700 10px/1 'Playfair Display',serif;color:rgba(255,255,255,.25);font-style:italic">CARR-9000</div></div>
 </body></html>`;
 }
 
 // ─── LAYOUT D — Tabloid ───────────────────────────────────────
-function layoutD(data, images, ctx) {
+function layoutD(data, images, ctx, captions = []) {
   const { badge, badgeColor, logoSrc, issueNum, accentColor, masthead, darkMode: dm } = ctx;
   const bg = dm?'#111':'#fff', text = dm?'#ccc':'#222', dimT = dm?'#888':'#555';
   const border = dm?'rgba(255,255,255,.15)':'#111', cardBdr = dm?'rgba(255,255,255,.08)':'#eee';
@@ -1340,7 +1354,10 @@ function layoutD(data, images, ctx) {
     const gc = gradeColor(cat.score);
     return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid ${cardBdr}"><div style="flex:1"><div style="font:700 9px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:${catLbl}">${cat.name}</div><div style="font:400 9px/1.3 Inter,sans-serif;color:${catDim};margin-top:2px">${cat.reasoning.split('.')[0]}.</div></div><div style="font:400 9px/1 Inter,sans-serif;color:${scoreC};flex-shrink:0">${cat.score}</div><div style="font:900 22px/1 Inter,sans-serif;color:${gc};min-width:32px;text-align:center;flex-shrink:0">${grade}</div></div>`;
   }).join('');
-  const leftImages = images.slice(1).filter(Boolean).map(src=>`<div style="margin-top:10px;border:2px solid ${border};line-height:0"><img src="${src}" style="width:100%;display:block"/></div>`).join('');
+  const leftImages = images.slice(1).filter(Boolean).map((src, i)=>{
+    const cap = captions && captions[1+i] ? `<div style="padding:4px 8px 5px;font:400 9px/1.4 Inter,sans-serif;color:rgba(255,255,255,.42);letter-spacing:.03em;background:#0a0a0a;border-top:1px solid rgba(255,255,255,.05)">${captions[1+i]}</div>` : '';
+    return `<div style="margin-top:10px;border:2px solid ${border};line-height:0"><img src="${src}" style="width:100%;display:block"/>${cap}</div>`;
+  }).join('');
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:${bg};color:${text};font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
 <div style="background:#111">
   <div style="background:${accentColor};padding:7px 24px;display:flex;align-items:center;justify-content:space-between"><img src="${logoSrc}" style="height:26px"/><span style="font:700 9px/1 Inter,sans-serif;color:#000;letter-spacing:.14em;text-transform:uppercase">Issue ${issueNum} &nbsp;·&nbsp; ${masthead}</span></div>
@@ -1351,7 +1368,7 @@ function layoutD(data, images, ctx) {
 </div>
 <div style="display:flex">
   <div style="flex:0 0 52%;padding:20px 20px 24px 28px;border-right:2px solid ${border}">${storyParas}
-    <div style="margin-top:16px;border:2px solid ${border};line-height:0"><img src="${images[0]}" style="width:100%;display:block"/></div>
+    <div style="margin-top:16px;border:2px solid ${border};line-height:0"><img src="${images[0]}" style="width:100%;display:block"/>${captions[0]?`<div style="padding:4px 8px 5px;font:400 9px/1.4 Inter,sans-serif;color:rgba(255,255,255,.42);letter-spacing:.03em;background:#0a0a0a;border-top:1px solid rgba(255,255,255,.05)">${captions[0]}</div>`:''}</div>
     ${leftImages}
   </div>
   <div style="flex:1;padding:20px 20px 24px 18px">
@@ -1368,7 +1385,7 @@ function layoutD(data, images, ctx) {
 }
 
 // ─── LAYOUT E — Workshop Inspection ──────────────────────────
-function layoutE(data, images, ctx) {
+function layoutE(data, images, ctx, captions = []) {
   const { badge, badgeColor, logoSrc, issueNum, accentColor, darkMode: dm } = ctx;
   const bg = dm?'#1a1612':'#fdf8e1', textC = dm?'#ccc':'#111', dimT = dm?'#888':'#777';
   const dashC = dm?'rgba(255,255,255,.15)':'#b5a98a', lineC = dm?'rgba(255,255,255,.08)':'#c5b9a0';
@@ -1388,7 +1405,10 @@ function layoutE(data, images, ctx) {
     return `<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px dashed ${dashC}"><span style="font:700 14px/1 'Courier New',monospace;color:${ic};flex-shrink:0;margin-top:1px">${pass?'☑':'☒'}</span><div style="flex:1"><div style="font:700 9px/1 'Courier New',monospace;text-transform:uppercase;letter-spacing:.06em;color:${catNameC}">${cat.name}</div><div style="font:400 9px/1 'Courier New',monospace;color:${ic};margin-top:2px">${pass?'PASS':'FAIL'} — ${cat.score}/1250</div><div style="font:400 9px/1.4 'Courier New',monospace;color:${catDimC};margin-top:3px">${cat.reasoning}</div></div></div>`;
   }).join('');
   const extraImgs = images.slice(1).filter(Boolean);
-  const extraImgHtml = extraImgs.length ? `<div style="display:flex;gap:6px;margin-top:10px">${extraImgs.map(src=>`<div style="flex:1;border:1px solid ${dashC};line-height:0"><img src="${src}" style="width:100%;display:block"/></div>`).join('')}</div>` : '';
+  const extraImgHtml = extraImgs.length ? `<div style="display:flex;gap:6px;margin-top:10px">${extraImgs.map((src, i)=>{
+    const cap = captions && captions[1+i] ? `<div style="padding:4px 8px 5px;font:400 9px/1.4 'Courier New',monospace;color:rgba(255,255,255,.38);letter-spacing:.03em;background:#1a1a1a;border-top:1px solid ${dashC}">${captions[1+i]}</div>` : '';
+    return `<div style="flex:1;border:1px solid ${dashC};line-height:0"><img src="${src}" style="width:100%;display:block"/>${cap}</div>`;
+  }).join('')}</div>` : '';
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_WITH_CAVEAT}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:${bg};color:${textC};font-family:'Courier New',monospace;width:900px;min-width:900px}</style></head><body>
 <div style="background:#2c2c2c;padding:14px 28px;display:flex;align-items:center;justify-content:space-between"><img src="${logoSrc}" style="height:32px"/><div style="font:700 9px/1.6 'Courier New',monospace;color:#aaa;text-align:right;letter-spacing:.06em">INSPECTION FORM NO. ${issueNum}<br/>DATE: ${today}<br/>INSPECTOR: CARR-9000</div></div>
 <div style="padding:18px 28px 16px;border-bottom:2px dashed ${dashC};position:relative">
@@ -1408,7 +1428,7 @@ function layoutE(data, images, ctx) {
   <div style="flex:1;padding:16px 24px 20px 20px">
     <div style="font:700 9px/1 'Courier New',monospace;text-transform:uppercase;letter-spacing:.1em;color:${dimT};margin-bottom:10px">✎ INSPECTOR NOTES</div>
     <div style="font:400 16px/1.85 Caveat,cursive;color:${dm?'#d4c9a8':'#1a1a1a'};background:repeating-linear-gradient(transparent,transparent 29px,${lineC} 29px,${lineC} 30px);padding-bottom:4px;min-height:180px">${storyText}</div>
-    <div style="margin-top:14px;border:1px solid ${dashC};line-height:0"><img src="${images[0]}" style="width:100%;display:block"/></div>
+    <div style="margin-top:14px;border:1px solid ${dashC};line-height:0"><img src="${images[0]}" style="width:100%;display:block"/>${captions[0]?`<div style="padding:4px 8px 5px;font:400 9px/1.4 'Courier New',monospace;color:rgba(255,255,255,.38);letter-spacing:.03em;background:#1a1a1a;border-top:1px solid ${dashC}">${captions[0]}</div>`:''}</div>
     ${extraImgHtml}
   </div>
 </div>
@@ -1417,7 +1437,7 @@ function layoutE(data, images, ctx) {
 }
 
 // ─── LAYOUT F — Dark Magazine Cover ──────────────────────────
-function layoutF(data, images, ctx) {
+function layoutF(data, images, ctx, captions = []) {
   const { badge, badgeColor, logoSrc, issueNum } = ctx;
   const bg = '#020202';
   const accent = '#f5a623';
@@ -1698,7 +1718,7 @@ function renderResult(data, images) {
   const effectiveDarkMode = currentLayoutIdx === 5 ? false : isArticleDarkMode;
   const ctx = { badge, badgeColor, accentColor, logoSrc, issueNum: currentIssueNum, masthead, darkMode: effectiveDarkMode };
 
-  const html = layouts[currentLayoutIdx](data, images, ctx);
+  const html = layouts[currentLayoutIdx](data, images, ctx, currentCaptions || []);
 
   // Sync selector UI
   document.getElementById('layout-select').value = currentLayoutIdx;
@@ -1874,6 +1894,7 @@ document.getElementById('btn-dark').addEventListener('click', () => {
 document.getElementById('btn-reset').addEventListener('click', () => {
   currentData = null;
   currentImages = [];
+  currentCaptions = [];
   pendingImages = [];
   currentCarName = 'the-vehicle';
 
