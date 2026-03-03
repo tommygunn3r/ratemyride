@@ -188,7 +188,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { images, beastMode } = req.body;
+  const { images, beastMode, specSheet } = req.body;
 
   if (!images || !Array.isArray(images) || images.length === 0) {
     return res.status(400).json({ error: 'Missing images array' });
@@ -202,13 +202,17 @@ export default async function handler(req, res) {
   const prompt = beastMode ? BEAST_PROMPT : SYSTEM_PROMPT;
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
+  const userText = specSheet
+    ? `The submitter has provided the following information about this vehicle:\n---\n${specSheet}\n---\nAnalyze this vehicle and return your assessment as JSON.`
+    : 'Analyze this vehicle and return your assessment as JSON.';
+
   const payload = {
     system_instruction: { parts: [{ text: prompt }] },
     contents: [{
       role: 'user',
       parts: [
         ...images.map(img => ({ inline_data: { mime_type: img.mimeType, data: img.data } })),
-        { text: 'Analyze this vehicle and return your assessment as JSON.' }
+        { text: userText }
       ]
     }],
     generationConfig: { temperature: beastMode ? 0.8 : 0.5 }
