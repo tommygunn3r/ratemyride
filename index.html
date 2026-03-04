@@ -906,6 +906,14 @@
           <option value="5">Magazine Cover</option>
         </select>
       </div>
+      <div id="forsale-layout-row" style="display:none">
+        <label for="forsale-layout-select">Layout</label>
+        <select id="forsale-layout-select">
+          <option value="0">CARR-9000 Dark</option>
+          <option value="1">Marketplace</option>
+          <option value="2">Craigslist</option>
+        </select>
+      </div>
     </div>
 
     <!-- Results iframe -->
@@ -982,6 +990,7 @@ let currentRejectionData = null;
 let currentSubmitImages = []; // [{data, mimeType}] saved at submit time for leaderboard upload
 let isForSaleListing = false;
 let currentForSaleData = null;
+let currentForSaleLayoutIdx = 0;
 
 // ─── SCAN MESSAGES ───────────────────────────────────────────
 const scanMessages = [
@@ -1439,8 +1448,9 @@ function renderForSale(data, images, captions) {
   };
   frame.src = blobUrl;
 
-  // Hide rating-specific controls
+  // Hide rating-specific controls, show for-sale layout row
   document.getElementById('layout-row').style.display = 'none';
+  document.getElementById('forsale-layout-row').style.display = '';
   document.getElementById('btn-dark').style.display = 'none';
   document.getElementById('btn-submit').style.display = 'none';
   document.getElementById('submit-note').style.display = 'none';
@@ -1468,8 +1478,15 @@ function renderForSale(data, images, captions) {
   }, 400);
 }
 
-// ─── LAYOUT FOR SALE ─────────────────────────────────────────
+// ─── LAYOUT FOR SALE — DISPATCHER ────────────────────────────
 function layoutForSale(data, images, ctx, captions = []) {
+  if (currentForSaleLayoutIdx === 1) return layoutMarketplace(data, images, ctx, captions);
+  if (currentForSaleLayoutIdx === 2) return layoutCraigslist(data, images, ctx, captions);
+  return layoutForSaleDark(data, images, ctx, captions);
+}
+
+// ─── LAYOUT FOR SALE — DARK (CARR-9000 EDITORIAL) ─────────────
+function layoutForSaleDark(data, images, ctx, captions = []) {
   const { logoSrc, issueNum, beastMode } = ctx;
   const accent = beastMode ? '#c84b1e' : '#c8960e';
 
@@ -1486,13 +1503,97 @@ function layoutForSale(data, images, ctx, captions = []) {
   const extras = images.slice(1,4).filter(Boolean);
   const extrasHtml = extras.length ? `<div style="display:flex;background:#0a0a0a;border-top:1px solid rgba(255,255,255,.06)">${extras.map((src,i)=>{const c=captions[i+1]?`<div style="padding:4px 8px 5px;font:400 9px/1.4 Inter,sans-serif;color:rgba(255,255,255,.35);letter-spacing:.03em;border-top:1px solid rgba(255,255,255,.05)">${captions[i+1]}</div>`:'';return `<div style="flex:1;line-height:0"><img src="${src}" style="width:100%;display:block"/>${c}</div>`;}).join('')}</div>` : '';
 
+  const reasonHtml = data.reason_for_selling ? `<div style="margin-top:12px;padding:8px 12px;background:rgba(255,255,255,.04);border-left:2px solid ${accent}"><span style="font:600 8px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.3)">Reason for Selling</span><div style="font:400 11px/1.5 Inter,sans-serif;color:rgba(255,255,255,.55);margin-top:4px;font-style:italic">${data.reason_for_selling}</div></div>` : '';
+  const aiPriceHtml = data.ai_price ? `<div style="font:400 9px/1 Inter,sans-serif;color:rgba(255,255,255,.3);margin-top:7px;letter-spacing:.02em">CARR-9000 estimates: ${data.ai_price}</div>` : '';
+
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#0d0d0d;color:#e0e0e0;font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
 <div style="background:#111;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.07)"><div style="display:flex;align-items:center;gap:14px"><img src="${logoSrc}" style="height:32px"/><div style="border-left:1px solid rgba(255,255,255,.15);padding-left:14px"><div style="font:600 10px/1 Inter,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:${accent}">Certified Listings</div><div style="font:400 9px/1.4 Inter,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-top:3px">CARR-9000 ${beastMode?'Shitbox Edition':'Official'}</div></div></div><div style="font:400 9px/1.6 Inter,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);text-align:right">Listing #${issueNum}<br/>For Sale by Owner</div></div>
 <div style="height:2px;background:linear-gradient(90deg,${accent},${accent}55)"></div>
-<div style="padding:28px 28px 20px"><div style="font:900 26px/1.2 'Playfair Display',serif;color:#fff;letter-spacing:-.01em">${data.headline||'Vehicle For Sale'}</div>${data.tagline?`<div style="font:400 13px/1.5 Inter,sans-serif;color:rgba(255,255,255,.45);margin-top:8px;font-style:italic">${data.tagline}</div>`:''}</div>
-<div style="display:flex;align-items:flex-start;padding:0 28px 24px;gap:20px"><div style="flex:0 0 53%;min-width:0"><div style="line-height:0;background:#111"><img src="${images[0]||''}" style="width:100%;display:block"/>${cap0}</div>${extrasHtml}</div><div style="flex:1;min-width:0"><div style="background:#161616;border:1px solid rgba(255,255,255,.1);border-top:3px solid ${accent};padding:18px 20px 16px"><div style="font:700 28px/1 Inter,sans-serif;color:${accent}">${data.price_display||'Price Upon Request'}</div>${data.price_commentary?`<div style="font:400 10px/1.5 Inter,sans-serif;color:rgba(255,255,255,.35);margin-top:10px;font-style:italic">${data.price_commentary}</div>`:''}</div><div style="background:#111;border:1px solid rgba(255,255,255,.07);border-top:none;padding:4px 16px 10px">${pointsHtml}</div></div></div>
+<div style="padding:28px 28px 20px"><div style="font:900 26px/1.2 'Playfair Display',serif;color:#fff;letter-spacing:-.01em">${data.headline||'Vehicle For Sale'}</div>${data.tagline?`<div style="font:400 13px/1.5 Inter,sans-serif;color:rgba(255,255,255,.45);margin-top:8px;font-style:italic">${data.tagline}</div>`:''}${reasonHtml}</div>
+<div style="display:flex;align-items:flex-start;padding:0 28px 24px;gap:20px"><div style="flex:0 0 53%;min-width:0"><div style="line-height:0;background:#111"><img src="${images[0]||''}" style="width:100%;display:block"/>${cap0}</div>${extrasHtml}</div><div style="flex:1;min-width:0"><div style="background:#161616;border:1px solid rgba(255,255,255,.1);border-top:3px solid ${accent};padding:18px 20px 16px"><div style="font:700 28px/1 Inter,sans-serif;color:${accent}">${data.price_display||'Price Upon Request'}</div>${aiPriceHtml}${data.price_commentary?`<div style="font:400 10px/1.5 Inter,sans-serif;color:rgba(255,255,255,.35);margin-top:10px;font-style:italic">${data.price_commentary}</div>`:''}</div><div style="background:#111;border:1px solid rgba(255,255,255,.07);border-top:none;padding:4px 16px 10px">${pointsHtml}</div></div></div>
 ${descParas?`<div style="padding:20px 28px 22px;border-top:1px solid rgba(255,255,255,.07)"><div style="font:600 9px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:14px">Description</div>${descParas}</div>`:''}
 <div style="background:#0a0a0a;padding:10px 28px;border-top:1px solid rgba(255,255,255,.07)"><div style="font:400 8px/1.5 Inter,sans-serif;color:rgba(255,255,255,.22);letter-spacing:.03em">${data.fine_print||''}</div></div>
+</body></html>`;
+}
+
+// ─── LAYOUT FOR SALE — FACEBOOK MARKETPLACE ───────────────────
+function layoutMarketplace(data, images, ctx, captions = []) {
+  const { logoSrc } = ctx;
+  const SF = `-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif`;
+
+  const points = Array.isArray(data.selling_points) ? data.selling_points : [];
+  const pointsHtml = points.map((p, i) =>
+    `<div style="${i>0?'border-top:1px solid #e4e6eb;':''}display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:9px 0"><span style="font:400 13px/1.4 ${SF};color:#65676b;white-space:nowrap;flex-shrink:0">${p.label||''}</span><span style="font:400 13px/1.4 ${SF};color:#1c1e21;text-align:right">${p.detail||''}</span></div>`
+  ).join('');
+
+  const descParas = (data.description||'').split(/\n\n+/).filter(Boolean).map(p =>
+    `<p style="font:400 13px/1.65 ${SF};color:#1c1e21;margin-bottom:10px">${p}</p>`
+  ).join('');
+
+  const cap0 = captions[0] ? `<div style="background:#000;padding:4px 10px 5px;font:400 10px/1.4 ${SF};color:rgba(255,255,255,.55)">${captions[0]}</div>` : '';
+  const extras = images.slice(1,4).filter(Boolean);
+  const extrasHtml = extras.length ? `<div style="display:flex;gap:2px;background:#000;padding:0 0 2px">${extras.map((src,i)=>{const c=captions[i+1]?`<div style="padding:3px 8px 4px;font:400 9px/1.3 ${SF};color:rgba(255,255,255,.5);background:#000">${captions[i+1]}</div>`:'';return `<div style="flex:1;line-height:0"><img src="${src}" style="width:100%;display:block"/>${c}</div>`;}).join('')}</div>` : '';
+
+  const divider = `<div style="border-top:1px solid #e4e6eb;margin:16px 0"></div>`;
+  const reasonHtml = data.reason_for_selling ? `<div style="display:flex;gap:6px;margin-top:12px;padding:10px 12px;background:#f0f2f5;border-radius:8px"><span style="font:600 12px/1.5 ${SF};color:#65676b;white-space:nowrap;flex-shrink:0">Reason for selling:</span><span style="font:400 12px/1.5 ${SF};color:#1c1e21">${data.reason_for_selling}</span></div>` : '';
+  const aiPriceHtml = data.ai_price ? `<div style="font:400 11px/1 ${SF};color:#65676b;margin-top:5px">CARR-9000 estimates: ${data.ai_price}</div>` : '';
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><style>*{box-sizing:border-box;margin:0;padding:0}body{background:#f0f2f5;font-family:${SF};width:900px;min-width:900px;color:#1c1e21}</style></head><body>
+<div style="background:#1877f2;padding:10px 16px;display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0"><img src="${logoSrc}" style="height:26px;width:auto"/></div><div><div style="color:#fff;font:700 14px/1 ${SF}">Marketplace</div><div style="color:rgba(255,255,255,.8);font:400 11px/1.3 ${SF};margin-top:2px">Today · Local pickup</div></div></div>
+<div style="background:#000;line-height:0"><img src="${images[0]||''}" style="width:100%;display:block;max-height:520px;object-fit:contain"/>${cap0}</div>
+${extrasHtml}
+<div style="background:#fff;padding:16px 20px">
+<div style="font:700 30px/1 ${SF};color:#1c1e21">${data.price_display||'Price Upon Request'}</div>${aiPriceHtml}
+<div style="font:700 18px/1.25 ${SF};color:#1c1e21;margin-top:10px">${data.headline||'Vehicle For Sale'}</div>
+${data.tagline?`<div style="font:400 13px/1.4 ${SF};color:#65676b;margin-top:4px;font-style:italic">${data.tagline}</div>`:''}
+${reasonHtml}
+${data.price_commentary?`<div style="font:400 11px/1.5 ${SF};color:#65676b;margin-top:10px;font-style:italic">${data.price_commentary}</div>`:''}
+${divider}
+<div style="font:700 15px/1 ${SF};color:#1c1e21;margin-bottom:4px">Details</div>${pointsHtml}
+${descParas?`${divider}<div style="font:700 15px/1 ${SF};color:#1c1e21;margin-bottom:10px">Description</div>${descParas}`:''}
+${divider}
+<div style="display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:50%;background:#e4e6eb;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0"><img src="${logoSrc}" style="height:32px;width:auto"/></div><div><div style="font:700 14px/1 ${SF};color:#1c1e21">CARR-9000</div><div style="font:400 11px/1.3 ${SF};color:#65676b;margin-top:3px">Certified Listings · Joined 2024</div></div></div>
+<div style="background:#e4e6eb;border-radius:8px;padding:11px;text-align:center;margin-top:12px;font:700 14px/1 ${SF};color:#1c1e21">Message Seller</div>
+</div>
+<div style="padding:10px 20px;background:#f0f2f5;border-top:1px solid #ddd"><div style="font:400 10px/1.5 ${SF};color:#90949c">${data.fine_print||''}</div></div>
+</body></html>`;
+}
+
+// ─── LAYOUT FOR SALE — CRAIGSLIST ─────────────────────────────
+function layoutCraigslist(data, images, ctx, captions = []) {
+  const { logoSrc, issueNum } = ctx;
+  const now = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+  const points = Array.isArray(data.selling_points) ? data.selling_points : [];
+  const pointsRows = points.map(p =>
+    `<tr><td style="padding:3px 14px 3px 0;color:#777;white-space:nowrap;vertical-align:top;font-size:13px">${p.label||''}:</td><td style="padding:3px 0;color:#333;font-size:13px">${p.detail||''}</td></tr>`
+  ).join('');
+
+  const imgGrid = images.slice(0,4).filter(Boolean);
+  const imgW = imgGrid.length === 1 ? '100%' : imgGrid.length === 2 ? '49%' : '32%';
+  const imagesHtml = `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:16px">${imgGrid.map((src,i)=>`<div style="width:${imgW};line-height:0"><img src="${src}" style="width:100%;display:block;border:1px solid #ccc"/></div>`).join('')}</div>`;
+
+  const descText = (data.description||'').split(/\n\n+/).filter(Boolean).join('\n\n');
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#333;width:900px;min-width:900px}a{color:#246;text-decoration:underline}</style></head><body>
+<div style="background:#811821;padding:6px 20px;display:flex;align-items:center;gap:10px"><img src="${logoSrc}" style="height:18px;filter:brightness(0) invert(1) opacity(.65)"/><span style="color:rgba(255,255,255,.75);font-size:11px;letter-spacing:.05em">CARR-9000 certified listings &nbsp;·&nbsp; classified ads</span></div>
+<div style="background:#f9f9f9;border-bottom:1px solid #ddd;padding:5px 20px;font-size:11px;color:#999">CL &rsaquo; your city &rsaquo; for sale &rsaquo; cars &amp; trucks &rsaquo; by owner</div>
+<div style="padding:16px 20px;max-width:860px">
+<h2 style="font:bold 20px/1.2 Georgia,serif;color:#246;margin-bottom:8px">${data.headline||'VEHICLE FOR SALE'}</h2>
+<div style="font:bold 18px/1 Arial,sans-serif;color:#333;margin-bottom:4px">${data.price_display||'Price Upon Request'}${data.ai_price?` <span style="font:400 11px/1 Arial,sans-serif;color:#999">(CARR-9000 fair estimate: ${data.ai_price})</span>`:''}</div>
+${data.tagline?`<div style="font:italic 13px/1.4 Georgia,serif;color:#555;margin-bottom:12px">${data.tagline}</div>`:''}
+<hr style="border:none;border-top:1px solid #ddd;margin:12px 0"/>
+${imagesHtml}
+<table style="border-collapse:collapse;margin-bottom:14px">${pointsRows}</table>
+<hr style="border:none;border-top:1px solid #ddd;margin:12px 0"/>
+<div style="line-height:1.7;margin-bottom:14px;white-space:pre-wrap;font-size:13px;color:#333">${descText}</div>
+${data.reason_for_selling?`<div style="margin-bottom:14px;font-size:13px"><b>reason for selling:</b> ${data.reason_for_selling}</div>`:''}
+<hr style="border:none;border-top:1px solid #ddd;margin:12px 0"/>
+<div style="font:bold 11px/1.5 Arial,sans-serif;color:#333;border:1px solid #ccc;padding:8px 10px;background:#fafafa;margin-bottom:14px">DO NOT CONTACT ME WITH UNSOLICITED SERVICES OR OFFERS</div>
+<div style="font:400 10px/1.6 Arial,sans-serif;color:#999;margin-bottom:16px">${data.fine_print||''}</div>
+<hr style="border:none;border-top:1px solid #ddd;margin-bottom:10px"/>
+<div style="font:400 11px/1.8 Arial,sans-serif;color:#999">post id: ${issueNum}<br/>posted: ${now}<br/>updated: ${now}</div>
+</div>
 </body></html>`;
 }
 
@@ -2225,6 +2326,11 @@ document.getElementById('layout-select').addEventListener('change', function() {
   if (currentData && currentImages.length) renderResult(currentData, currentImages);
 });
 
+document.getElementById('forsale-layout-select').addEventListener('change', function() {
+  currentForSaleLayoutIdx = parseInt(this.value);
+  if (currentForSaleData && currentImages.length) renderForSale(currentForSaleData, currentImages, currentCaptions);
+});
+
 // ─── DARK MODE TOGGLE ────────────────────────────────────────
 document.getElementById('btn-dark').addEventListener('click', () => {
   isArticleDarkMode = !isArticleDarkMode;
@@ -2291,7 +2397,10 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   // Reset for-sale state
   isForSaleListing = false;
   currentForSaleData = null;
+  currentForSaleLayoutIdx = 0;
   document.getElementById('price-input').value = '';
+  document.getElementById('forsale-layout-row').style.display = 'none';
+  document.getElementById('forsale-layout-select').value = '0';
 
   // Reset beast mode
   document.getElementById('beast-checkbox').checked = false;
