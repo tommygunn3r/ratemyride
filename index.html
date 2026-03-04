@@ -1454,9 +1454,6 @@ function renderForSale(data, images, captions) {
   } else if (navigator.share) {
     shareBtn.textContent = 'Share';
     shareBtn.style.display = '';
-  } else if (navigator.clipboard) {
-    shareBtn.textContent = 'Copy Link';
-    shareBtn.style.display = '';
   } else {
     shareBtn.style.display = 'none';
   }
