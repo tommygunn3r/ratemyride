@@ -275,6 +275,51 @@
       margin-top: 4px;
     }
 
+    /* ─── PRICE INPUT ────────────────────────────────── */
+    #price-wrap {
+      width: 100%;
+      max-width: 460px;
+    }
+
+    #price-input {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      box-sizing: border-box;
+    }
+
+    #price-input:focus { border-color: rgba(255,255,255,0.3); }
+    #price-input::placeholder { color: rgba(255,255,255,0.2); }
+
+    /* ─── SUBMIT BUTTONS ROW ─────────────────────────── */
+    #submit-btns {
+      display: none;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    #submit-btns.visible { display: flex; }
+
+    #btn-list {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.2);
+      color: var(--text);
+    }
+
+    #btn-list:hover {
+      background: rgba(76,175,80,0.15);
+      border-color: #4caf50;
+      color: #4caf50;
+    }
+
     #btn-dark {
       background: rgba(255,255,255,0.05);
       color: var(--text-dim);
@@ -823,7 +868,15 @@
         <div id="spec-counter">0 / 300</div>
       </div>
 
-      <button id="btn-rate" class="upload-btn primary" style="display:none">Rate This Ride</button>
+      <div id="price-wrap">
+        <label id="spec-sheet-label" for="price-input" style="font:700 9px/1 'Inter',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;display:block">Asking Price <span style="font-weight:400;opacity:.5">— required for For Sale listing</span></label>
+        <input id="price-input" type="text" maxlength="50" placeholder="e.g. $12,500 OBO"/>
+      </div>
+
+      <div id="submit-btns">
+        <button id="btn-rate" class="upload-btn primary">Rate This Ride</button>
+        <button id="btn-list" class="upload-btn">List It For Sale</button>
+      </div>
 
       <input type="checkbox" id="beast-checkbox" />
       <div id="beast-toggle-wrap">
@@ -908,8 +961,9 @@
 
 <script>
 // ─── CONFIG ──────────────────────────────────────────────────
-const API_URL    = 'https://ratemyride-pi.vercel.app/api/rate';
-const SUBMIT_API = 'https://ratemyride-pi.vercel.app/api/submit';
+const API_URL      = 'https://ratemyride-pi.vercel.app/api/rate';
+const FORSALE_API  = 'https://ratemyride-pi.vercel.app/api/forsale';
+const SUBMIT_API   = 'https://ratemyride-pi.vercel.app/api/submit';
 const MAX_SIZE_MB = 10;
 
 // ─── STATE ───────────────────────────────────────────────────
@@ -926,6 +980,8 @@ let currentIssueNum = 100;  // stable per submission
 let isRejection = false;
 let currentRejectionData = null;
 let currentSubmitImages = []; // [{data, mimeType}] saved at submit time for leaderboard upload
+let isForSaleListing = false;
+let currentForSaleData = null;
 
 // ─── SCAN MESSAGES ───────────────────────────────────────────
 const scanMessages = [
@@ -962,11 +1018,39 @@ const beastScanMessages = [
   'Rendering final verdict...',
 ];
 
+const forsaleScanMessages = [
+  'Reviewing the evidence...',
+  'Consulting the blue book...',
+  'Assessing market conditions...',
+  'Identifying the selling points...',
+  'Documenting all visible features...',
+  'Sourcing comparable listings...',
+  'Locating something positive to say...',
+  'Reviewing disclosure obligations...',
+  'Drafting diplomatic copy...',
+  'Calculating optimism premium...',
+  'Preparing the listing...',
+];
+
+const forsaleBeastScanMessages = [
+  'Questioning your financial expectations...',
+  'Reviewing the evidence against the price...',
+  'Locating any redeeming qualities...',
+  'Consulting the disappointment index...',
+  'Finding something — anything — to sell...',
+  'Drafting the apology listing...',
+  'Calculating buyer\'s remorse in advance...',
+  'Listing the crimes against resale value...',
+  'Preparing painfully honest copy...',
+  'Attempting to make this work...',
+  'Producing the listing. Under protest.',
+];
+
 let scanInterval = null;
 let scanIdx = 0;
 
-function startScan() {
-  const messages = isBeastMode ? beastScanMessages : scanMessages;
+function startScan(customMessages) {
+  const messages = customMessages || (isBeastMode ? beastScanMessages : scanMessages);
   scanIdx = 0;
   const el = document.getElementById('scan-line-text');
   el.textContent = messages[0];
@@ -1042,6 +1126,10 @@ document.getElementById('btn-rate').addEventListener('click', () => {
   if (pendingImages.length) submitImage();
 });
 
+document.getElementById('btn-list').addEventListener('click', () => {
+  if (pendingImages.length) submitForSale();
+});
+
 // ─── IMAGE QUEUE ──────────────────────────────────────────────
 const MAX_IMAGES = 10;
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
@@ -1084,7 +1172,7 @@ function addImages(fileList, fromCamera = false) {
 
 function updateThumbs() {
   const container = document.getElementById('image-thumbs');
-  const rateBtn = document.getElementById('btn-rate');
+  const submitBtns = document.getElementById('submit-btns');
   container.innerHTML = '';
 
   pendingImages.forEach((img, idx) => {
@@ -1112,7 +1200,7 @@ function updateThumbs() {
 
   const hasImages = pendingImages.length > 0;
   container.style.display = hasImages ? 'flex' : 'none';
-  rateBtn.style.display = hasImages ? '' : 'none';
+  submitBtns.classList.toggle('visible', hasImages);
 }
 
 function removePendingImage(idx) {
@@ -1245,6 +1333,170 @@ async function submitImage() {
     console.error(err);
     showToast('CARR-9000 lost signal. Check your connection and try again.');
   }
+}
+
+// ─── FOR SALE SUBMIT ─────────────────────────────────────────
+async function submitForSale() {
+  if (!pendingImages.length) return;
+
+  const price = document.getElementById('price-input').value.trim();
+  if (!price) {
+    showToast('Add an asking price to generate a listing.');
+    document.getElementById('price-input').focus();
+    return;
+  }
+
+  const minDuration = 4500;
+  const startTime = Date.now();
+  startScan(isBeastMode ? forsaleBeastScanMessages : forsaleScanMessages);
+
+  try {
+    currentSpecSheet = document.getElementById('spec-sheet').value.trim().slice(0, 300);
+
+    const res = await fetch(FORSALE_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        images: pendingImages.map(img => ({ data: img.base64, mimeType: img.mimeType })),
+        beastMode: isBeastMode,
+        specSheet: currentSpecSheet || null,
+        price
+      })
+    });
+
+    let data;
+    const rawText = await res.text();
+    try { data = JSON.parse(rawText); }
+    catch { data = { error: `Server error ${res.status}.` }; }
+
+    const elapsed = Date.now() - startTime;
+    if (elapsed < minDuration) await new Promise(r => setTimeout(r, minDuration - elapsed));
+
+    stopScan();
+
+    if (!res.ok) {
+      showToast(data.error || 'CARR-9000 Listings encountered a transmission error.');
+      return;
+    }
+
+    if (data.valid === false) {
+      currentImages = pendingImages.map(img => img.dataUrl);
+      currentCaptions = [];
+      currentCarName = 'rejection';
+      showRejection(data, currentImages);
+      return;
+    }
+
+    // Apply AI image selection and crops
+    const allDataUrls = pendingImages.map(img => img.dataUrl);
+    const selIdx = (Array.isArray(data.selected_images) && data.selected_images.length > 0)
+      ? data.selected_images.slice(0, 4).filter(i => i >= 0 && i < pendingImages.length)
+      : pendingImages.map((_, i) => i).slice(0, 4);
+    const crops = Array.isArray(data.image_crops) ? data.image_crops : [];
+    const croppedDataUrls = await Promise.all(
+      selIdx.map((imgIdx, j) => cropImage(allDataUrls[imgIdx], crops[j] || null))
+    );
+
+    currentForSaleData = data;
+    currentImages = croppedDataUrls;
+    currentCaptions = Array.isArray(data.image_captions)
+      ? selIdx.map((_, j) => data.image_captions[j] || '')
+      : [];
+    currentCarName = (data.headline || 'listing').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
+    renderForSale(data, currentImages, currentCaptions);
+
+  } catch (err) {
+    stopScan();
+    console.error(err);
+    showToast('CARR-9000 Listings lost signal. Check your connection and try again.');
+  }
+}
+
+// ─── FOR SALE RENDER ─────────────────────────────────────────
+function renderForSale(data, images, captions) {
+  isForSaleListing = true;
+  isRejection = false;
+  currentRejectionData = null;
+
+  const logoSrc = document.querySelector('#header img').src;
+  const issueNum = Math.floor(Math.random() * 9000) + 1000;
+  const html = layoutForSale(data, images, { logoSrc, issueNum, beastMode: isBeastMode }, captions || []);
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const blobUrl = URL.createObjectURL(blob);
+  const frame = document.getElementById('result-frame');
+  frame.style.height = '900px';
+  frame.onload = () => {
+    const measure = () => {
+      try {
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        const h = doc.body.scrollHeight;
+        if (h > 100) { frame.style.height = h + 'px'; scaleFrame(); }
+      } catch {}
+    };
+    setTimeout(measure, 300);
+    setTimeout(measure, 1200);
+  };
+  frame.src = blobUrl;
+
+  // Hide rating-specific controls
+  document.getElementById('layout-row').style.display = 'none';
+  document.getElementById('btn-dark').style.display = 'none';
+  document.getElementById('btn-submit').style.display = 'none';
+  document.getElementById('submit-note').style.display = 'none';
+
+  // Share button
+  const shareBtn = document.getElementById('btn-share');
+  const testFile = new File([''], 'test.jpg', { type: 'image/jpeg' });
+  if (navigator.share && navigator.canShare && navigator.canShare({ files: [testFile] })) {
+    shareBtn.textContent = 'Share Listing';
+    shareBtn.style.display = '';
+  } else if (navigator.share) {
+    shareBtn.textContent = 'Share';
+    shareBtn.style.display = '';
+  } else if (navigator.clipboard) {
+    shareBtn.textContent = 'Copy Link';
+    shareBtn.style.display = '';
+  } else {
+    shareBtn.style.display = 'none';
+  }
+
+  document.getElementById('upload-section').style.opacity = '0';
+  document.getElementById('upload-section').style.pointerEvents = 'none';
+  setTimeout(() => {
+    document.getElementById('upload-section').style.display = 'none';
+    document.getElementById('action-bar').classList.add('active');
+    document.getElementById('result-frame-wrap').classList.add('active');
+    scaleFrame();
+  }, 400);
+}
+
+// ─── LAYOUT FOR SALE ─────────────────────────────────────────
+function layoutForSale(data, images, ctx, captions = []) {
+  const { logoSrc, issueNum, beastMode } = ctx;
+  const accent = beastMode ? '#c84b1e' : '#c8960e';
+
+  const points = Array.isArray(data.selling_points) ? data.selling_points : [];
+  const pointsHtml = points.map((p, i) =>
+    `<div style="${i>0?'border-top:1px solid rgba(255,255,255,.06);':''}padding:9px 0"><span style="display:block;font:600 9px/1 Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:${accent};margin-bottom:4px">${p.label||''}</span><span style="font:400 11px/1.6 Inter,sans-serif;color:rgba(255,255,255,.62)">${p.detail||''}</span></div>`
+  ).join('');
+
+  const descParas = (data.description||'').split(/\n\n+/).filter(Boolean).map(p =>
+    `<p style="font:400 12px/1.75 Inter,sans-serif;color:rgba(255,255,255,.62);margin-bottom:12px">${p}</p>`
+  ).join('');
+
+  const cap0 = captions[0] ? `<div style="padding:5px 10px 6px;font:400 9px/1.4 Inter,sans-serif;color:rgba(255,255,255,.38);letter-spacing:.03em;background:#0a0a0a;border-top:1px solid rgba(255,255,255,.06)">${captions[0]}</div>` : '';
+  const extras = images.slice(1,4).filter(Boolean);
+  const extrasHtml = extras.length ? `<div style="display:flex;background:#0a0a0a;border-top:1px solid rgba(255,255,255,.06)">${extras.map((src,i)=>{const c=captions[i+1]?`<div style="padding:4px 8px 5px;font:400 9px/1.4 Inter,sans-serif;color:rgba(255,255,255,.35);letter-spacing:.03em;border-top:1px solid rgba(255,255,255,.05)">${captions[i+1]}</div>`:'';return `<div style="flex:1;line-height:0"><img src="${src}" style="width:100%;display:block"/>${c}</div>`;}).join('')}</div>` : '';
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>${FONTS_STANDARD}<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#0d0d0d;color:#e0e0e0;font-family:Inter,sans-serif;width:900px;min-width:900px}</style></head><body>
+<div style="background:#111;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.07)"><div style="display:flex;align-items:center;gap:14px"><img src="${logoSrc}" style="height:32px"/><div style="border-left:1px solid rgba(255,255,255,.15);padding-left:14px"><div style="font:600 10px/1 Inter,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:${accent}">Certified Listings</div><div style="font:400 9px/1.4 Inter,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-top:3px">CARR-9000 ${beastMode?'Shitbox Edition':'Official'}</div></div></div><div style="font:400 9px/1.6 Inter,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);text-align:right">Listing #${issueNum}<br/>For Sale by Owner</div></div>
+<div style="height:2px;background:linear-gradient(90deg,${accent},${accent}55)"></div>
+<div style="padding:28px 28px 20px"><div style="font:900 26px/1.2 'Playfair Display',serif;color:#fff;letter-spacing:-.01em">${data.headline||'Vehicle For Sale'}</div>${data.tagline?`<div style="font:400 13px/1.5 Inter,sans-serif;color:rgba(255,255,255,.45);margin-top:8px;font-style:italic">${data.tagline}</div>`:''}</div>
+<div style="display:flex;align-items:flex-start;padding:0 28px 24px;gap:20px"><div style="flex:0 0 53%;min-width:0"><div style="line-height:0;background:#111"><img src="${images[0]||''}" style="width:100%;display:block"/>${cap0}</div>${extrasHtml}</div><div style="flex:1;min-width:0"><div style="background:#161616;border:1px solid rgba(255,255,255,.1);border-top:3px solid ${accent};padding:18px 20px 16px"><div style="font:700 28px/1 Inter,sans-serif;color:${accent}">${data.price_display||'Price Upon Request'}</div>${data.price_commentary?`<div style="font:400 10px/1.5 Inter,sans-serif;color:rgba(255,255,255,.35);margin-top:10px;font-style:italic">${data.price_commentary}</div>`:''}</div><div style="background:#111;border:1px solid rgba(255,255,255,.07);border-top:none;padding:4px 16px 10px">${pointsHtml}</div></div></div>
+${descParas?`<div style="padding:20px 28px 22px;border-top:1px solid rgba(255,255,255,.07)"><div style="font:600 9px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:14px">Description</div>${descParas}</div>`:''}
+<div style="background:#0a0a0a;padding:10px 28px;border-top:1px solid rgba(255,255,255,.07)"><div style="font:400 8px/1.5 Inter,sans-serif;color:rgba(255,255,255,.22);letter-spacing:.03em">${data.fine_print||''}</div></div>
+</body></html>`;
 }
 
 // ─── SCORE HELPERS ───────────────────────────────────────────
@@ -1932,10 +2184,12 @@ document.getElementById('btn-download').addEventListener('click', async () => {
 
 // ─── SHARE ───────────────────────────────────────────────────
 document.getElementById('btn-share').addEventListener('click', async () => {
-  if (!currentData && !isRejection) return;
+  if (!currentData && !isRejection && !isForSaleListing) return;
 
   let shareText;
-  if (isRejection && currentRejectionData) {
+  if (isForSaleListing && currentForSaleData) {
+    shareText = `CARR-9000 Certified Listings: ${currentForSaleData.headline||'Vehicle For Sale'}\n${currentForSaleData.tagline||''}\n\nroastedrides.com`;
+  } else if (isRejection && currentRejectionData) {
     shareText = `CARR-9000 has issued a rejection notice:\n"${currentRejectionData.message || 'Submission declined.'}"\n\nroastedrides.com`;
   } else {
     const badge = totalBadge(currentData.total_score);
@@ -2036,6 +2290,11 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   isArticleDarkMode = false;
   document.getElementById('btn-dark').textContent = 'Dark';
   document.getElementById('btn-dark').style.display = '';
+
+  // Reset for-sale state
+  isForSaleListing = false;
+  currentForSaleData = null;
+  document.getElementById('price-input').value = '';
 
   // Reset beast mode
   document.getElementById('beast-checkbox').checked = false;
